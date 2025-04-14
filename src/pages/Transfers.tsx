@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,12 +133,14 @@ const Transfers = () => {
   const { data: transfers, isLoading, error } = useQuery({
     queryKey: ['transfers'],
     queryFn: fetchTransfers,
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to load transfers. Using sample data instead.",
-        variant: "destructive"
-      });
+    meta: {
+      onError: () => {
+        toast({
+          title: "Error",
+          description: "Failed to load transfers. Using sample data instead.",
+          variant: "destructive"
+        });
+      }
     }
   });
 
