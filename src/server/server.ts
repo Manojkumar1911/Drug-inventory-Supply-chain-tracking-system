@@ -22,7 +22,7 @@ app.use(express.json());
 // Product routes
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await Product.find({}).exec();
+    const products = await Product.find().lean();
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -42,7 +42,7 @@ app.post('/api/products', async (req, res) => {
 // Transfer routes
 app.get('/api/transfers', async (req, res) => {
   try {
-    const transfers = await Transfer.find({}).exec();
+    const transfers = await Transfer.find().lean();
     res.json(transfers);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -62,7 +62,7 @@ app.post('/api/transfers', async (req, res) => {
 // Alert routes
 app.get('/api/alerts', async (req, res) => {
   try {
-    const alerts = await Alert.find({}).exec();
+    const alerts = await Alert.find().lean();
     res.json(alerts);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
