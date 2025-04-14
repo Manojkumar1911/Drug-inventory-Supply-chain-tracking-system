@@ -1,5 +1,4 @@
-
-import React from "react";
+import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +19,8 @@ import {
   MoreHorizontal,
   Plus,
   Search,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Loader2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -32,9 +32,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useToast } from "@/components/ui/use-toast";
+import { fetchTransfers } from "@/services/api";
+import { useQuery } from "@tanstack/react-query";
 
-// Sample transfers data
-const transfersData = [
+const fallbackTransfersData = [
   {
     id: "TRF-3021",
     product: "Amoxicillin 500mg",
@@ -123,6 +125,43 @@ const getPriorityColor = (priority: string) => {
 };
 
 const Transfers = () => {
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const { data: transfers, isLoading, error } = useQuery({
+    queryKey: ['transfers'],
+    queryFn: fetchTransfers,
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to load transfers. Using sample data instead.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const displayedTransfers = transfers || fallbackTransfersData;
+  
+  const filteredTransfers = displayedTransfers.filter(transfer => {
+    const matchesSearch = 
+      transfer.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      transfer.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      transfer.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      transfer.to.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "pending" && transfer.status === "Pending Approval") ||
+      (statusFilter === "completed" && transfer.status === "Completed") || 
+      (statusFilter === "transit" && transfer.status === "In Transit");
+      
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleStatusFilterChange = (status: string) => {
+    setStatusFilter(status);
+  };
+
   return (
     <MainLayout>
       <div className="flex flex-col gap-6">
@@ -147,6 +186,8 @@ const Transfers = () => {
                 type="search"
                 placeholder="Search transfers..."
                 className="w-full bg-background pl-8 shadow-none md:max-w-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <Button variant="outline" size="icon" title="Advanced search">
@@ -156,15 +197,30 @@ const Transfers = () => {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button 
+              variant={statusFilter === "all" ? "default" : "outline"} 
+              size="sm" 
+              className="gap-2"
+              onClick={() => handleStatusFilterChange("all")}
+            >
               <ArrowLeftRight className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">All Transfers</span>
             </Button>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button 
+              variant={statusFilter === "pending" ? "default" : "outline"} 
+              size="sm" 
+              className="gap-2"
+              onClick={() => handleStatusFilterChange("pending")}
+            >
               <Clock className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Pending</span>
             </Button>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button 
+              variant={statusFilter === "completed" ? "default" : "outline"} 
+              size="sm" 
+              className="gap-2"
+              onClick={() => handleStatusFilterChange("completed")}
+            >
               <Check className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Completed</span>
             </Button>
@@ -179,68 +235,83 @@ const Transfers = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Transfer ID</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>From</TableHead>
-                    <TableHead>To</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transfersData.map((transfer) => (
-                    <TableRow key={transfer.id}>
-                      <TableCell className="font-medium">{transfer.id}</TableCell>
-                      <TableCell>{transfer.product}</TableCell>
-                      <TableCell>{transfer.quantity}</TableCell>
-                      <TableCell>{transfer.from}</TableCell>
-                      <TableCell>{transfer.to}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(transfer.status)}>
-                          {transfer.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getPriorityColor(transfer.priority)} variant="outline">
-                          {transfer.priority}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{transfer.createdAt}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>View details</DropdownMenuItem>
-                            <DropdownMenuItem>Edit transfer</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>Approve</DropdownMenuItem>
-                            <DropdownMenuItem>Cancel</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+            {isLoading ? (
+              <div className="flex justify-center items-center h-48">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2">Loading transfers...</span>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Transfer ID</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>From</TableHead>
+                      <TableHead>To</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTransfers.length > 0 ? (
+                      filteredTransfers.map((transfer) => (
+                        <TableRow key={transfer.id}>
+                          <TableCell className="font-medium">{transfer.id}</TableCell>
+                          <TableCell>{transfer.product}</TableCell>
+                          <TableCell>{transfer.quantity}</TableCell>
+                          <TableCell>{transfer.from}</TableCell>
+                          <TableCell>{transfer.to}</TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(transfer.status)}>
+                              {transfer.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getPriorityColor(transfer.priority)} variant="outline">
+                              {transfer.priority}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>{transfer.createdAt}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">Actions</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem>View details</DropdownMenuItem>
+                                <DropdownMenuItem>Edit transfer</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>Approve</DropdownMenuItem>
+                                <DropdownMenuItem>Cancel</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={9} className="h-24 text-center">
+                          No transfers found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
