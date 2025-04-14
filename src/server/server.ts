@@ -1,7 +1,9 @@
-
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import multer from 'multer';
+import csv from 'csv-parser';
+import fs from 'fs';
 import connectDB from './db';
 import Product from './models/Product';
 import Transfer from './models/Transfer';
@@ -10,6 +12,7 @@ import Alert from './models/Alert';
 dotenv.config();
 
 const app = express();
+const upload = multer({ dest: 'uploads/' });
 const PORT = process.env.PORT || 5000;
 
 // Connect to MongoDB
@@ -18,6 +21,32 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// CSV Upload route for Products
+app.post('/api/upload/products', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded' });
+  }
+
+  const results: any[] = [];
+
+  fs.createReadStream(req.file.path)
+    .pipe(csv())
+    .on('data', (data) => results.push(data))
+    .on('end', async () => {
+      try {
+        await Product.insertMany(results);
+        fs.unlinkSync(req.file.path); // Delete the uploaded file
+        res.status(200).json({ 
+          message: 'CSV uploaded successfully', 
+          count: results.length 
+        });
+      } catch (error) {
+        console.error('Error inserting products:', error);
+        res.status(500).json({ message: 'Error processing CSV', error });
+      }
+    });
+});
 
 // Product routes
 app.get('/api/products', async (req, res) => {
