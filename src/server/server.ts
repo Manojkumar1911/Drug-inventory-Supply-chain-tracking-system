@@ -22,7 +22,8 @@ app.use(express.json());
 // Product routes
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await Product.find().lean();
+    // Use find() with Model.find() without chaining .lean() directly
+    const products = await Product.find({});
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -42,7 +43,8 @@ app.post('/api/products', async (req, res) => {
 // Transfer routes
 app.get('/api/transfers', async (req, res) => {
   try {
-    const transfers = await Transfer.find().lean();
+    // Use find() with Model.find() without chaining .lean() directly
+    const transfers = await Transfer.find({});
     res.json(transfers);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -62,7 +64,8 @@ app.post('/api/transfers', async (req, res) => {
 // Alert routes
 app.get('/api/alerts', async (req, res) => {
   try {
-    const alerts = await Alert.find().lean();
+    // Use find() with Model.find() without chaining .lean() directly
+    const alerts = await Alert.find({});
     res.json(alerts);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
