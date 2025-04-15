@@ -43,20 +43,23 @@ app.post('/api/upload/products', upload.single('file'), async (req, res) => {
     await Product.insertMany(results);
     fs.unlinkSync(req.file.path);
     
-    res.status(200).json({ 
+    return res.status(200).json({ 
       message: 'CSV uploaded successfully', 
       count: results.length 
     });
   } catch (error) {
     console.error('Error processing CSV:', error);
-    res.status(500).json({ message: 'Error processing CSV', error });
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    return res.status(500).json({ message: 'Error processing CSV', error });
   }
 });
 
 // Product routes
 app.get('/api/products', async (_req, res) => {
   try {
-    const products = await Product.find().lean().exec();
+    const products = await Product.find({}).exec();
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -66,7 +69,7 @@ app.get('/api/products', async (_req, res) => {
 // Transfer routes
 app.get('/api/transfers', async (_req, res) => {
   try {
-    const transfers = await Transfer.find().lean().exec();
+    const transfers = await Transfer.find({}).exec();
     res.json(transfers);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -76,7 +79,7 @@ app.get('/api/transfers', async (_req, res) => {
 // Alert routes
 app.get('/api/alerts', async (_req, res) => {
   try {
-    const alerts = await Alert.find().lean().exec();
+    const alerts = await Alert.find({}).exec();
     res.json(alerts);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
