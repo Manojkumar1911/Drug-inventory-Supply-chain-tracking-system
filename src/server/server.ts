@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -23,58 +24,62 @@ app.use(cors());
 app.use(express.json());
 
 // CSV Upload route for Products
-app.post('/api/upload/products', upload.single('file'), (req, res) => {
+app.post('/api/upload/products', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
 
   const results: any[] = [];
 
-  fs.createReadStream(req.file.path)
-    .pipe(csv())
-    .on('data', (data) => results.push(data))
-    .on('end', async () => {
-      try {
-        await Product.insertMany(results);
-        fs.unlinkSync(req.file!.path);
-        return res.status(200).json({ 
-          message: 'CSV uploaded successfully', 
-          count: results.length 
-        });
-      } catch (error) {
-        console.error('Error inserting products:', error);
-        return res.status(500).json({ message: 'Error processing CSV', error });
-      }
+  try {
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(req.file!.path)
+        .pipe(csv())
+        .on('data', (data) => results.push(data))
+        .on('end', resolve)
+        .on('error', reject);
     });
+
+    await Product.insertMany(results);
+    fs.unlinkSync(req.file.path);
+    
+    res.status(200).json({ 
+      message: 'CSV uploaded successfully', 
+      count: results.length 
+    });
+  } catch (error) {
+    console.error('Error processing CSV:', error);
+    res.status(500).json({ message: 'Error processing CSV', error });
+  }
 });
 
 // Product routes
-app.get('/api/products', async (req, res) => {
+app.get('/api/products', async (_req, res) => {
   try {
-    const products = await Product.find({}).exec();
-    return res.json(products);
+    const products = await Product.find().lean().exec();
+    res.json(products);
   } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
 // Transfer routes
-app.get('/api/transfers', async (req, res) => {
+app.get('/api/transfers', async (_req, res) => {
   try {
-    const transfers = await Transfer.find({}).exec();
-    return res.json(transfers);
+    const transfers = await Transfer.find().lean().exec();
+    res.json(transfers);
   } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
 // Alert routes
-app.get('/api/alerts', async (req, res) => {
+app.get('/api/alerts', async (_req, res) => {
   try {
-    const alerts = await Alert.find({}).exec();
-    return res.json(alerts);
+    const alerts = await Alert.find().lean().exec();
+    res.json(alerts);
   } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
