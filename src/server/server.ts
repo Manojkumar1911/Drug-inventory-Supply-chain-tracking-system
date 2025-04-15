@@ -24,7 +24,7 @@ app.use(cors());
 app.use(express.json());
 
 // CSV Upload route for Products
-app.post('/api/upload/products', upload.single('file'), async (req, res) => {
+app.post('/api/upload/products', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
@@ -52,7 +52,7 @@ app.post('/api/upload/products', upload.single('file'), async (req, res) => {
 // Product routes
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await Product.find({}).lean().exec();
+    const products = await Product.find().lean();
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -62,7 +62,7 @@ app.get('/api/products', async (req, res) => {
 // Transfer routes
 app.get('/api/transfers', async (req, res) => {
   try {
-    const transfers = await Transfer.find({}).lean().exec();
+    const transfers = await Transfer.find().lean();
     res.json(transfers);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -72,7 +72,7 @@ app.get('/api/transfers', async (req, res) => {
 // Alert routes
 app.get('/api/alerts', async (req, res) => {
   try {
-    const alerts = await Alert.find({}).lean().exec();
+    const alerts = await Alert.find().lean();
     res.json(alerts);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });

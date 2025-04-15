@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { toast } from "react-toastify";
+import { toast } from "@/components/ui/sonner";
 
 interface Product {
   id: string;
@@ -194,16 +194,14 @@ const Products: React.FC = () => {
       });
       
       if (response.ok) {
-        toast({
-          title: "Success",
+        toast("Success", {
           description: "CSV file uploaded successfully",
         });
       } else {
         throw new Error('Upload failed');
       }
     } catch (error) {
-      toast({
-        title: "Error",
+      toast("Error", {
         description: "Failed to upload CSV file",
         variant: "destructive",
       });
