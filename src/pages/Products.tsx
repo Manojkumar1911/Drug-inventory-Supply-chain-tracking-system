@@ -1,4 +1,3 @@
-
 import React from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -33,6 +32,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { toast } from "react-toastify";
 
 interface Product {
   id: string;
@@ -180,6 +180,36 @@ const Products: React.FC = () => {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/upload/products', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "CSV file uploaded successfully",
+        });
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to upload CSV file",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <MainLayout>
       <div className="flex flex-col gap-6">
@@ -190,10 +220,24 @@ const Products: React.FC = () => {
               Manage your pharmaceutical inventory
             </p>
           </div>
-          <Button className="gap-2">
-            <PackagePlus className="h-4 w-4" />
-            Add Product
-          </Button>
+          <div className="flex gap-2">
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <Button variant="outline" className="gap-2">
+                <Download className="h-4 w-4" />
+                Upload CSV
+              </Button>
+            </label>
+            <Button className="gap-2">
+              <PackagePlus className="h-4 w-4" />
+              Add Product
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 md:flex-row">
