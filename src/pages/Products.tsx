@@ -195,15 +195,15 @@ const Products: React.FC = () => {
       
       if (response.ok) {
         toast("Success", {
-          description: "CSV file uploaded successfully",
+          description: "CSV file uploaded successfully"
         });
+        window.location.reload();
       } else {
         throw new Error('Upload failed');
       }
     } catch (error) {
       toast("Error", {
-        description: "Failed to upload CSV file",
-        variant: "destructive",
+        description: "Failed to upload CSV file"
       });
     }
   };
@@ -213,7 +213,7 @@ const Products: React.FC = () => {
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Products</h1>
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">Products</h1>
             <p className="text-muted-foreground">
               Manage your pharmaceutical inventory
             </p>
@@ -226,52 +226,20 @@ const Products: React.FC = () => {
                 onChange={handleFileUpload}
                 className="hidden"
               />
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20">
                 <Download className="h-4 w-4" />
                 Upload CSV
               </Button>
             </label>
-            <Button className="gap-2">
+            <Button className="gap-2 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90">
               <PackagePlus className="h-4 w-4" />
               Add Product
             </Button>
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 md:flex-row">
-          <div className="flex flex-1 items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search products..."
-                className="w-full bg-background pl-8 shadow-none md:max-w-sm"
-              />
-            </div>
-            <Button variant="outline" size="icon" title="Filter">
-              <Filter className="h-4 w-4" />
-              <span className="sr-only">Filter</span>
-            </Button>
-            <Button variant="outline" size="icon" title="Advanced search">
-              <SlidersHorizontal className="h-4 w-4" />
-              <span className="sr-only">Advanced search</span>
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" className="gap-2">
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Export</span>
-            </Button>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Total Products</CardTitle>
             </CardHeader>
@@ -282,7 +250,7 @@ const Products: React.FC = () => {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200/50">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
             </CardHeader>
@@ -295,7 +263,7 @@ const Products: React.FC = () => {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-800/20 border-red-200/50">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
             </CardHeader>
@@ -308,7 +276,7 @@ const Products: React.FC = () => {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200/50">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
             </CardHeader>
@@ -323,7 +291,7 @@ const Products: React.FC = () => {
           </Card>
         </div>
 
-        <Card>
+        <Card className="bg-gradient-to-br from-card to-muted/50">
           <CardHeader className="pb-3">
             <CardTitle>Inventory List</CardTitle>
             <CardDescription>

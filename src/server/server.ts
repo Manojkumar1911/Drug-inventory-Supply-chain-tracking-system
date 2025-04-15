@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -37,14 +36,14 @@ app.post('/api/upload/products', upload.single('file'), (req, res) => {
     .on('end', async () => {
       try {
         await Product.insertMany(results);
-        fs.unlinkSync(req.file.path);
-        res.status(200).json({ 
+        fs.unlinkSync(req.file!.path);
+        return res.status(200).json({ 
           message: 'CSV uploaded successfully', 
           count: results.length 
         });
       } catch (error) {
         console.error('Error inserting products:', error);
-        res.status(500).json({ message: 'Error processing CSV', error });
+        return res.status(500).json({ message: 'Error processing CSV', error });
       }
     });
 });
@@ -52,30 +51,30 @@ app.post('/api/upload/products', upload.single('file'), (req, res) => {
 // Product routes
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await Product.find().lean();
-    res.json(products);
+    const products = await Product.find({}).exec();
+    return res.json(products);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    return res.status(500).json({ message: 'Server Error', error });
   }
 });
 
 // Transfer routes
 app.get('/api/transfers', async (req, res) => {
   try {
-    const transfers = await Transfer.find().lean();
-    res.json(transfers);
+    const transfers = await Transfer.find({}).exec();
+    return res.json(transfers);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    return res.status(500).json({ message: 'Server Error', error });
   }
 });
 
 // Alert routes
 app.get('/api/alerts', async (req, res) => {
   try {
-    const alerts = await Alert.find().lean();
-    res.json(alerts);
+    const alerts = await Alert.find({}).exec();
+    return res.json(alerts);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    return res.status(500).json({ message: 'Server Error', error });
   }
 });
 
