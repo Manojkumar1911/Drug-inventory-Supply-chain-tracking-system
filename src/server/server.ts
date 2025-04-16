@@ -15,6 +15,8 @@ import User from './models/User';
 import Location from './models/Location';
 import Supplier from './models/Supplier';
 import PurchaseOrder from './models/PurchaseOrder';
+import Settings from './models/Settings';
+import Analytics from './models/Analytics';
 
 dotenv.config();
 
@@ -170,7 +172,7 @@ app.post('/api/upload/products', upload.single('file'), async (req: Request, res
 // Product routes
 app.get('/api/products', async (_req: Request, res: Response) => {
   try {
-    const products = await Product.find();
+    const products = await Product.find().exec();
     return res.json(products);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -190,7 +192,7 @@ app.post('/api/products', async (req: Request, res: Response) => {
 // Transfer routes
 app.get('/api/transfers', async (_req: Request, res: Response) => {
   try {
-    const transfers = await Transfer.find();
+    const transfers = await Transfer.find().exec();
     return res.json(transfers);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -203,7 +205,7 @@ app.post('/api/transfers', async (req: Request, res: Response) => {
     const savedTransfer = await transfer.save();
     
     // Update product quantities
-    const product = await Product.findById(transfer.product);
+    const product = await Product.findById(transfer.product).exec();
     if (product) {
       // Reduce quantity at source location
       if (product.location === transfer.from) {
@@ -215,7 +217,7 @@ app.post('/api/transfers', async (req: Request, res: Response) => {
       const destinationProduct = await Product.findOne({ 
         sku: product.sku,
         location: transfer.to
-      });
+      }).exec();
       
       if (destinationProduct) {
         // Update quantity at destination
@@ -242,7 +244,7 @@ app.post('/api/transfers', async (req: Request, res: Response) => {
 // Alert routes
 app.get('/api/alerts', async (_req: Request, res: Response) => {
   try {
-    const alerts = await Alert.find().sort({ createdAt: -1 });
+    const alerts = await Alert.find().sort({ createdAt: -1 }).exec();
     return res.json(alerts);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -262,7 +264,7 @@ app.post('/api/alerts', async (req: Request, res: Response) => {
 // Location routes
 app.get('/api/locations', async (_req: Request, res: Response) => {
   try {
-    const locations = await Location.find();
+    const locations = await Location.find().exec();
     return res.json(locations);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -282,7 +284,7 @@ app.post('/api/locations', async (req: Request, res: Response) => {
 // Supplier routes
 app.get('/api/suppliers', async (_req: Request, res: Response) => {
   try {
-    const suppliers = await Supplier.find();
+    const suppliers = await Supplier.find().exec();
     return res.json(suppliers);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -302,7 +304,7 @@ app.post('/api/suppliers', async (req: Request, res: Response) => {
 // Purchase Order routes
 app.get('/api/purchase-orders', async (_req: Request, res: Response) => {
   try {
-    const orders = await PurchaseOrder.find().sort({ createdAt: -1 });
+    const orders = await PurchaseOrder.find().sort({ createdAt: -1 }).exec();
     return res.json(orders);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -327,11 +329,125 @@ app.post('/api/purchase-orders', async (req: Request, res: Response) => {
   }
 });
 
+// Settings routes
+app.get('/api/settings', async (_req: Request, res: Response) => {
+  try {
+    const settings = await Settings.find().exec();
+    return res.json(settings);
+  } catch (error) {
+    return res.status(500).json({ message: 'Server Error', error });
+  }
+});
+
+app.post('/api/settings', async (req: Request, res: Response) => {
+  try {
+    const { key, value, group, description } = req.body;
+    
+    // Check if setting exists
+    const existingSetting = await Settings.findOne({ key }).exec();
+    if (existingSetting) {
+      // Update existing setting
+      existingSetting.value = value;
+      existingSetting.group = group || existingSetting.group;
+      existingSetting.description = description || existingSetting.description;
+      existingSetting.updatedBy = req.body.user?.id || 'system';
+      
+      const updatedSetting = await existingSetting.save();
+      return res.json(updatedSetting);
+    } else {
+      // Create new setting
+      const setting = new Settings({
+        key,
+        value,
+        group,
+        description,
+        updatedBy: req.body.user?.id || 'system'
+      });
+      
+      const savedSetting = await setting.save();
+      return res.status(201).json(savedSetting);
+    }
+  } catch (error) {
+    return res.status(500).json({ message: 'Error saving setting', error });
+  }
+});
+
+// Analytics routes
+app.get('/api/analytics', async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, metricType, location, category } = req.query;
+    
+    let query: any = {};
+    
+    if (startDate && endDate) {
+      query.date = { 
+        $gte: new Date(startDate as string), 
+        $lte: new Date(endDate as string) 
+      };
+    }
+    
+    if (metricType) {
+      query.metricType = metricType;
+    }
+    
+    if (location) {
+      query.location = location;
+    }
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    const analytics = await Analytics.find(query).sort({ date: 1 }).exec();
+    return res.json(analytics);
+  } catch (error) {
+    return res.status(500).json({ message: 'Server Error', error });
+  }
+});
+
+app.post('/api/analytics', async (req: Request, res: Response) => {
+  try {
+    const { date, metricType, value, location, category, notes } = req.body;
+    
+    // Check if analytics entry already exists for this date/metric/location/category
+    const existingMetric = await Analytics.findOne({
+      date: new Date(date),
+      metricType,
+      location: location || null,
+      category: category || null
+    }).exec();
+    
+    if (existingMetric) {
+      // Update existing metric
+      existingMetric.value = value;
+      existingMetric.notes = notes || existingMetric.notes;
+      
+      const updatedMetric = await existingMetric.save();
+      return res.json(updatedMetric);
+    } else {
+      // Create new metric
+      const metric = new Analytics({
+        date: new Date(date),
+        metricType,
+        value,
+        location,
+        category,
+        notes
+      });
+      
+      const savedMetric = await metric.save();
+      return res.status(201).json(savedMetric);
+    }
+  } catch (error) {
+    return res.status(500).json({ message: 'Error saving analytics', error });
+  }
+});
+
 // User routes
 app.get('/api/users', async (_req: Request, res: Response) => {
   try {
     // Don't return password field
-    const users = await User.find().select('-password');
+    const users = await User.find().select('-password').exec();
     return res.json(users);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
