@@ -1,5 +1,5 @@
 
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Transfers from "./pages/Transfers";
@@ -10,79 +10,21 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import { Toaster } from "./components/ui/sonner";
-import { AuthProvider, useAuth } from "./context/AuthContext";
-import { useEffect } from "react";
-
-// Protected route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
-  
-  // Check if the user is authenticated
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
-  
-  return <>{children}</>;
-};
+import { AuthProvider } from "./context/AuthContext";
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
-  
-  useEffect(() => {
-    // Log authentication status for debugging
-    console.log("Auth status:", isAuthenticated);
-  }, [isAuthenticated]);
-  
   return (
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      
-      <Route
-        path="/products"
-        element={
-          <ProtectedRoute>
-            <Products />
-          </ProtectedRoute>
-        }
-      />
-      
-      <Route
-        path="/transfers"
-        element={
-          <ProtectedRoute>
-            <Transfers />
-          </ProtectedRoute>
-        }
-      />
-      
-      <Route
-        path="/alerts"
-        element={
-          <ProtectedRoute>
-            <Alerts />
-          </ProtectedRoute>
-        }
-      />
-      
-      <Route
-        path="/analytics"
-        element={
-          <ProtectedRoute>
-            <Analytics />
-          </ProtectedRoute>
-        }
-      />
+      {/* Temporarily removed protected routes */}
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/products" element={<Products />} />
+      <Route path="/transfers" element={<Transfers />} />
+      <Route path="/alerts" element={<Alerts />} />
+      <Route path="/analytics" element={<Analytics />} />
       
       <Route path="*" element={<NotFound />} />
     </Routes>
