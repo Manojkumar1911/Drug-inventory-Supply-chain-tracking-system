@@ -1,459 +1,119 @@
 
-import express, { Request, Response } from 'express';
+import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import multer from 'multer';
-import csv from 'csv-parser';
-import fs from 'fs';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import connectDB from './db';
-import Product from './models/Product';
-import Transfer from './models/Transfer';
-import Alert from './models/Alert';
-import User from './models/User';
-import Location from './models/Location';
-import Supplier from './models/Supplier';
-import PurchaseOrder from './models/PurchaseOrder';
-import Settings from './models/Settings';
-import Analytics from './models/Analytics';
+import systemMonitor from './utils/systemMonitor';
+import dbHealthCheck from './utils/dbHealthCheck';
+
+// Routes
+import authRoutes, { authenticateToken } from './routes/authRoutes';
+import productRoutes from './routes/productRoutes';
+import transferRoutes from './routes/transferRoutes';
+import alertRoutes from './routes/alertRoutes';
+import locationRoutes from './routes/locationRoutes';
+import supplierRoutes from './routes/supplierRoutes';
+import purchaseOrderRoutes from './routes/purchaseOrderRoutes';
+import settingsRoutes from './routes/settingsRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
 
 dotenv.config();
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret';
-
-// Connect to MongoDB
-connectDB();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Authentication middleware
-const authenticateToken = (req: Request, res: Response, next: any) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ message: 'Access denied. No token provided.' });
+// Connect to MongoDB
+const dbConnection = connectDB();
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/transfers', transferRoutes);
+app.use('/api/alerts', alertRoutes);
+app.use('/api/locations', locationRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/purchase-orders', purchaseOrderRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/analytics', analyticsRoutes);
+
+// Database connection status endpoint
+app.get('/api/system/status', async (_req, res) => {
+  const mongoStatus = {
+    connected: false,
+    status: 'disconnected'
+  };
+
+  const readyState = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+
+  if (dbConnection) {
+    const state = dbConnection.connection?.readyState || 0;
+    mongoStatus.connected = state === 1;
+    mongoStatus.status = readyState[state as keyof typeof readyState] || 'unknown';
   }
 
-  try {
-    const verified = jwt.verify(token, JWT_SECRET);
-    req.body.user = verified;
-    next();
-  } catch (error) {
-    res.status(400).json({ message: 'Invalid token' });
-  }
-};
-
-// Auth routes
-app.post('/api/auth/register', async (req: Request, res: Response) => {
-  try {
-    const { name, email, password, role } = req.body;
-    
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists with this email' });
+  return res.json({
+    server: {
+      status: 'running',
+      uptime: process.uptime(),
+      timestamp: new Date()
+    },
+    database: mongoStatus,
+    monitoring: {
+      systemMonitorActive: systemMonitor.monitoringActive || false,
+      dbHealthCheckActive: dbHealthCheck.isMonitoring || false
     }
-    
-    const user = new User({
-      name,
-      email,
-      password,
-      role: role || 'staff'
-    });
-    
-    const savedUser = await user.save();
-    
-    // Create token
-    const token = jwt.sign(
-      { id: savedUser._id, email: savedUser.email, role: savedUser.role },
-      JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-    
-    return res.status(201).json({
-      token,
-      user: {
-        id: savedUser._id,
-        name: savedUser.name,
-        email: savedUser.email,
-        role: savedUser.role
-      }
-    });
-    
+  });
+});
+
+// Start automated monitoring
+app.post('/api/system/monitoring/start', authenticateToken, (_req, res) => {
+  try {
+    systemMonitor.startMonitoring();
+    dbHealthCheck.startMonitoring();
+    return res.json({ message: 'System monitoring started successfully' });
   } catch (error) {
-    console.error('Registration error:', error);
-    return res.status(500).json({ message: 'Server Error', error });
+    return res.status(500).json({ message: 'Error starting monitoring', error });
   }
 });
 
-app.post('/api/auth/login', async (req: Request, res: Response) => {
+// Stop automated monitoring
+app.post('/api/system/monitoring/stop', authenticateToken, (_req, res) => {
   try {
-    const { email, password } = req.body;
-    
-    // Check if user exists
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
-    }
-    
-    // Check password
-    const validPassword = await user.comparePassword(password);
-    if (!validPassword) {
-      return res.status(400).json({ message: 'Invalid email or password' });
-    }
-    
-    // Update last login time
-    user.lastLogin = new Date();
-    await user.save();
-    
-    // Create token
-    const token = jwt.sign(
-      { id: user._id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-    
-    return res.status(200).json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
-    
+    systemMonitor.stopMonitoring();
+    dbHealthCheck.stopMonitoring();
+    return res.json({ message: 'System monitoring stopped successfully' });
   } catch (error) {
-    console.error('Login error:', error);
-    return res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-// CSV Upload route for Products
-app.post('/api/upload/products', upload.single('file'), async (req: Request, res: Response) => {
-  if (!req.file) {
-    return res.status(400).json({ message: 'No file uploaded' });
-  }
-
-  const results: any[] = [];
-
-  try {
-    await new Promise<void>((resolve, reject) => {
-      fs.createReadStream(req.file!.path)
-        .pipe(csv())
-        .on('data', (data) => results.push(data))
-        .on('end', () => resolve())
-        .on('error', reject);
-    });
-
-    await Product.insertMany(results);
-    fs.unlinkSync(req.file.path);
-    
-    return res.status(200).json({ 
-      message: 'CSV uploaded successfully', 
-      count: results.length 
-    });
-  } catch (error) {
-    console.error('Error processing CSV:', error);
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
-    }
-    return res.status(500).json({ message: 'Error processing CSV', error });
-  }
-});
-
-// Product routes
-app.get('/api/products', async (_req: Request, res: Response) => {
-  try {
-    const products = await Product.find().exec();
-    return res.json(products);
-  } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-app.post('/api/products', async (req: Request, res: Response) => {
-  try {
-    const product = new Product(req.body);
-    const savedProduct = await product.save();
-    return res.status(201).json(savedProduct);
-  } catch (error) {
-    return res.status(500).json({ message: 'Error creating product', error });
-  }
-});
-
-// Transfer routes
-app.get('/api/transfers', async (_req: Request, res: Response) => {
-  try {
-    const transfers = await Transfer.find().exec();
-    return res.json(transfers);
-  } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-app.post('/api/transfers', async (req: Request, res: Response) => {
-  try {
-    const transfer = new Transfer(req.body);
-    const savedTransfer = await transfer.save();
-    
-    // Update product quantities
-    const product = await Product.findById(transfer.product).exec();
-    if (product) {
-      // Reduce quantity at source location
-      if (product.location === transfer.from) {
-        product.quantity -= transfer.quantity;
-        await product.save();
-      }
-      
-      // Check if product exists at destination
-      const destinationProduct = await Product.findOne({ 
-        sku: product.sku,
-        location: transfer.to
-      }).exec();
-      
-      if (destinationProduct) {
-        // Update quantity at destination
-        destinationProduct.quantity += transfer.quantity;
-        await destinationProduct.save();
-      } else {
-        // Create new product entry at destination
-        const newLocationProduct = new Product({
-          ...product.toObject(),
-          _id: undefined,
-          location: transfer.to,
-          quantity: transfer.quantity
-        });
-        await newLocationProduct.save();
-      }
-    }
-    
-    return res.status(201).json(savedTransfer);
-  } catch (error) {
-    return res.status(500).json({ message: 'Error creating transfer', error });
-  }
-});
-
-// Alert routes
-app.get('/api/alerts', async (_req: Request, res: Response) => {
-  try {
-    const alerts = await Alert.find().sort({ createdAt: -1 }).exec();
-    return res.json(alerts);
-  } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-app.post('/api/alerts', async (req: Request, res: Response) => {
-  try {
-    const alert = new Alert(req.body);
-    const savedAlert = await alert.save();
-    return res.status(201).json(savedAlert);
-  } catch (error) {
-    return res.status(500).json({ message: 'Error creating alert', error });
-  }
-});
-
-// Location routes
-app.get('/api/locations', async (_req: Request, res: Response) => {
-  try {
-    const locations = await Location.find().exec();
-    return res.json(locations);
-  } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-app.post('/api/locations', async (req: Request, res: Response) => {
-  try {
-    const location = new Location(req.body);
-    const savedLocation = await location.save();
-    return res.status(201).json(savedLocation);
-  } catch (error) {
-    return res.status(500).json({ message: 'Error creating location', error });
-  }
-});
-
-// Supplier routes
-app.get('/api/suppliers', async (_req: Request, res: Response) => {
-  try {
-    const suppliers = await Supplier.find().exec();
-    return res.json(suppliers);
-  } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-app.post('/api/suppliers', async (req: Request, res: Response) => {
-  try {
-    const supplier = new Supplier(req.body);
-    const savedSupplier = await supplier.save();
-    return res.status(201).json(savedSupplier);
-  } catch (error) {
-    return res.status(500).json({ message: 'Error creating supplier', error });
-  }
-});
-
-// Purchase Order routes
-app.get('/api/purchase-orders', async (_req: Request, res: Response) => {
-  try {
-    const orders = await PurchaseOrder.find().sort({ createdAt: -1 }).exec();
-    return res.json(orders);
-  } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-app.post('/api/purchase-orders', async (req: Request, res: Response) => {
-  try {
-    // Generate order number
-    const orderCount = await PurchaseOrder.countDocuments();
-    const orderNumber = `PO-${new Date().getFullYear()}-${(orderCount + 1).toString().padStart(5, '0')}`;
-    
-    const purchaseOrder = new PurchaseOrder({
-      ...req.body,
-      orderNumber
-    });
-    
-    const savedOrder = await purchaseOrder.save();
-    return res.status(201).json(savedOrder);
-  } catch (error) {
-    return res.status(500).json({ message: 'Error creating purchase order', error });
-  }
-});
-
-// Settings routes
-app.get('/api/settings', async (_req: Request, res: Response) => {
-  try {
-    const settings = await Settings.find().exec();
-    return res.json(settings);
-  } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-app.post('/api/settings', async (req: Request, res: Response) => {
-  try {
-    const { key, value, group, description } = req.body;
-    
-    // Check if setting exists
-    const existingSetting = await Settings.findOne({ key }).exec();
-    if (existingSetting) {
-      // Update existing setting
-      existingSetting.value = value;
-      existingSetting.group = group || existingSetting.group;
-      existingSetting.description = description || existingSetting.description;
-      existingSetting.updatedBy = req.body.user?.id || 'system';
-      
-      const updatedSetting = await existingSetting.save();
-      return res.json(updatedSetting);
-    } else {
-      // Create new setting
-      const setting = new Settings({
-        key,
-        value,
-        group,
-        description,
-        updatedBy: req.body.user?.id || 'system'
-      });
-      
-      const savedSetting = await setting.save();
-      return res.status(201).json(savedSetting);
-    }
-  } catch (error) {
-    return res.status(500).json({ message: 'Error saving setting', error });
-  }
-});
-
-// Analytics routes
-app.get('/api/analytics', async (req: Request, res: Response) => {
-  try {
-    const { startDate, endDate, metricType, location, category } = req.query;
-    
-    let query: any = {};
-    
-    if (startDate && endDate) {
-      query.date = { 
-        $gte: new Date(startDate as string), 
-        $lte: new Date(endDate as string) 
-      };
-    }
-    
-    if (metricType) {
-      query.metricType = metricType;
-    }
-    
-    if (location) {
-      query.location = location;
-    }
-    
-    if (category) {
-      query.category = category;
-    }
-    
-    const analytics = await Analytics.find(query).sort({ date: 1 }).exec();
-    return res.json(analytics);
-  } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-app.post('/api/analytics', async (req: Request, res: Response) => {
-  try {
-    const { date, metricType, value, location, category, notes } = req.body;
-    
-    // Check if analytics entry already exists for this date/metric/location/category
-    const existingMetric = await Analytics.findOne({
-      date: new Date(date),
-      metricType,
-      location: location || null,
-      category: category || null
-    }).exec();
-    
-    if (existingMetric) {
-      // Update existing metric
-      existingMetric.value = value;
-      existingMetric.notes = notes || existingMetric.notes;
-      
-      const updatedMetric = await existingMetric.save();
-      return res.json(updatedMetric);
-    } else {
-      // Create new metric
-      const metric = new Analytics({
-        date: new Date(date),
-        metricType,
-        value,
-        location,
-        category,
-        notes
-      });
-      
-      const savedMetric = await metric.save();
-      return res.status(201).json(savedMetric);
-    }
-  } catch (error) {
-    return res.status(500).json({ message: 'Error saving analytics', error });
-  }
-});
-
-// User routes
-app.get('/api/users', async (_req: Request, res: Response) => {
-  try {
-    // Don't return password field
-    const users = await User.find().select('-password').exec();
-    return res.json(users);
-  } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
+    return res.status(500).json({ message: 'Error stopping monitoring', error });
   }
 });
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`MongoDB connection status: ${dbConnection ? 'OK' : 'Failed'}`);
+  
+  // Start system monitoring
+  try {
+    systemMonitor.startMonitoring();
+    dbHealthCheck.startMonitoring();
+    console.log('Automatic system monitoring started');
+  } catch (error) {
+    console.error('Failed to start system monitoring:', error);
+  }
+});
+
+// Handle process termination
+process.on('SIGINT', () => {
+  console.log('Server shutting down...');
+  systemMonitor.stopMonitoring();
+  dbHealthCheck.stopMonitoring();
+  process.exit(0);
 });

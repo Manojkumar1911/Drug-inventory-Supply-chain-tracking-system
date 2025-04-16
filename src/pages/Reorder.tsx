@@ -10,6 +10,9 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Search, PlusCircle, RefreshCw } from "lucide-react";
+import { fetchProductsToReorder, createPurchaseOrder } from "@/services/api";
+import { useApiStatus } from "@/services/api";
+import { toast } from "sonner";
 
 interface Product {
   _id: string;
@@ -19,43 +22,95 @@ interface Product {
   category: string;
   reorderLevel: number;
   supplier: string;
+  location: string;
+  unit: string;
 }
 
 const Reorder = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const { status } = useApiStatus();
 
-  // Mock query since the API doesn't exist yet
-  const { data: products = [], isLoading, error } = useQuery({
-    queryKey: ['products'],
-    queryFn: async () => {
-      // In a real app, this would fetch from an API endpoint
-      // Returning mock data for now
-      return [
-        { _id: "1", name: "Paracetamol", sku: "PCM100", quantity: 5, category: "Pain Relief", reorderLevel: 10, supplier: "PharmaCorp" },
-        { _id: "2", name: "Amoxicillin", sku: "AMX250", quantity: 3, category: "Antibiotics", reorderLevel: 15, supplier: "MediSupply" },
-        { _id: "3", name: "Ibuprofen", sku: "IBU200", quantity: 8, category: "Pain Relief", reorderLevel: 20, supplier: "HealthMeds" },
-        { _id: "4", name: "Cetirizine", sku: "CTZ10", quantity: 2, category: "Allergy", reorderLevel: 5, supplier: "AllerCare" },
-      ];
-    },
+  // Use the API call to get products that need reordering
+  const { data: products = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['productsToReorder'],
+    queryFn: fetchProductsToReorder,
+    enabled: status.server && status.database,
   });
 
-  const filteredProducts = products.filter(product => 
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.supplier.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProducts = products.filter((product: Product) => 
+    product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const productsToReorder = filteredProducts.filter(product => product.quantity < product.reorderLevel);
-
-  const handleReorder = (productId: string) => {
-    console.log(`Reordering product with ID: ${productId}`);
-    // In a real app, this would trigger an API call
+  const handleReorder = async (productId: string) => {
+    try {
+      const product = products.find((p: Product) => p._id === productId);
+      if (!product) return;
+      
+      // Simplified PO creation - in a real app, this would open a form
+      const orderData = {
+        supplier: product.supplier || "Unknown supplier",
+        supplierName: product.supplier || "Unknown supplier",
+        items: [{
+          product: product._id,
+          productName: product.name,
+          quantity: product.reorderLevel - product.quantity + 5, // Reorder to slightly above reorder level
+          unitPrice: 0, // Would be set in the form
+          totalPrice: 0 // Would be calculated based on unit price and quantity
+        }],
+        submittedBy: "System",
+        totalAmount: 0, // Would be calculated based on items
+        notes: `Automatic reorder for ${product.name} (${product.sku})`
+      };
+      
+      await createPurchaseOrder(orderData);
+      
+      toast.success("Purchase order created successfully", {
+        description: `A purchase order for ${product.name} has been created.`,
+      });
+      
+      // Refresh the product list after reordering
+      refetch();
+    } catch (error) {
+      console.error(`Error reordering product with ID: ${productId}`, error);
+      toast.error("Failed to create purchase order", {
+        description: "An error occurred while creating the purchase order. Please try again.",
+      });
+    }
   };
 
-  const handleReorderAll = () => {
-    console.log("Reordering all products below threshold");
-    // In a real app, this would trigger a batch API call
+  const handleReorderAll = async () => {
+    try {
+      // In a real app, this would be a batch operation
+      // Here we'll just create multiple POs sequentially for demo purposes
+      for (const product of filteredProducts) {
+        await handleReorder(product._id);
+      }
+      
+      toast.success(`Reorder complete for ${filteredProducts.length} products`);
+    } catch (error) {
+      console.error("Error reordering all products", error);
+      toast.error("Failed to reorder all products");
+    }
   };
+
+  if (!status.database) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Reorder Management</h1>
+        </div>
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Database connection error. Please check your MongoDB connection.
+          </AlertDescription>
+        </Alert>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -63,11 +118,11 @@ const Reorder = () => {
         <h1 className="text-2xl font-bold">Reorder Management</h1>
         <Button 
           onClick={handleReorderAll} 
-          disabled={productsToReorder.length === 0}
+          disabled={filteredProducts.length === 0 || isLoading}
           className="flex items-center gap-2"
         >
           <RefreshCw className="h-4 w-4" />
-          Reorder All ({productsToReorder.length})
+          Reorder All ({filteredProducts.length})
         </Button>
       </div>
 
@@ -98,7 +153,7 @@ const Reorder = () => {
             </Alert>
           )}
 
-          {!isLoading && !error && productsToReorder.length === 0 && (
+          {!isLoading && !error && filteredProducts.length === 0 && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="rounded-full bg-green-100 p-3 dark:bg-green-900">
                 <RefreshCw className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -110,7 +165,7 @@ const Reorder = () => {
             </div>
           )}
 
-          {!isLoading && !error && productsToReorder.length > 0 && (
+          {!isLoading && !error && filteredProducts.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -118,22 +173,25 @@ const Reorder = () => {
                   <TableHead>SKU</TableHead>
                   <TableHead>Current Stock</TableHead>
                   <TableHead>Reorder Level</TableHead>
-                  <TableHead>Supplier</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {productsToReorder.map((product) => (
+                {filteredProducts.map((product: Product) => (
                   <TableRow key={product._id}>
-                    <TableCell>{product.name}</TableCell>
+                    <TableCell>
+                      <div>{product.name}</div>
+                      <div className="text-sm text-muted-foreground">{product.category}</div>
+                    </TableCell>
                     <TableCell>{product.sku}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
-                        {product.quantity}
+                        {product.quantity} {product.unit}
                       </Badge>
                     </TableCell>
-                    <TableCell>{product.reorderLevel}</TableCell>
-                    <TableCell>{product.supplier}</TableCell>
+                    <TableCell>{product.reorderLevel} {product.unit}</TableCell>
+                    <TableCell>{product.location}</TableCell>
                     <TableCell className="text-right">
                       <Button 
                         size="sm" 
