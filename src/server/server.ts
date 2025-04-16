@@ -59,17 +59,27 @@ app.post('/api/upload/products', upload.single('file'), async (req, res) => {
 // Product routes
 app.get('/api/products', async (_req, res) => {
   try {
-    const products = await Product.find().lean().exec();
+    const products = await Product.find({}).lean();
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
 });
 
+app.post('/api/products', async (req, res) => {
+  try {
+    const product = new Product(req.body);
+    await product.save();
+    res.status(201).json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating product', error });
+  }
+});
+
 // Transfer routes
 app.get('/api/transfers', async (_req, res) => {
   try {
-    const transfers = await Transfer.find().lean().exec();
+    const transfers = await Transfer.find({}).lean();
     res.json(transfers);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -79,7 +89,7 @@ app.get('/api/transfers', async (_req, res) => {
 // Alert routes
 app.get('/api/alerts', async (_req, res) => {
   try {
-    const alerts = await Alert.find().lean().exec();
+    const alerts = await Alert.find({}).lean();
     res.json(alerts);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -89,4 +99,3 @@ app.get('/api/alerts', async (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
