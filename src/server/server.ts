@@ -32,18 +32,18 @@ app.post('/api/upload/products', upload.single('file'), async (req, res) => {
   const results: any[] = [];
 
   try {
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       fs.createReadStream(req.file!.path)
         .pipe(csv())
         .on('data', (data) => results.push(data))
-        .on('end', resolve)
+        .on('end', () => resolve())
         .on('error', reject);
     });
 
     await Product.insertMany(results);
     fs.unlinkSync(req.file.path);
     
-    res.status(200).json({ 
+    return res.status(200).json({ 
       message: 'CSV uploaded successfully', 
       count: results.length 
     });
@@ -52,19 +52,17 @@ app.post('/api/upload/products', upload.single('file'), async (req, res) => {
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }
-    res.status(500).json({ message: 'Error processing CSV', error });
-    return;
+    return res.status(500).json({ message: 'Error processing CSV', error });
   }
 });
 
 // Product routes
 app.get('/api/products', async (_req, res) => {
   try {
-    const products = await Product.find();
-    res.json(products);
+    const products = await Product.find().exec();
+    return res.json(products);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
-    return;
+    return res.status(500).json({ message: 'Server Error', error });
   }
 });
 
@@ -72,32 +70,29 @@ app.post('/api/products', async (req, res) => {
   try {
     const product = new Product(req.body);
     await product.save();
-    res.status(201).json(product);
+    return res.status(201).json(product);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating product', error });
-    return;
+    return res.status(500).json({ message: 'Error creating product', error });
   }
 });
 
 // Transfer routes
 app.get('/api/transfers', async (_req, res) => {
   try {
-    const transfers = await Transfer.find();
-    res.json(transfers);
+    const transfers = await Transfer.find().exec();
+    return res.json(transfers);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
-    return;
+    return res.status(500).json({ message: 'Server Error', error });
   }
 });
 
 // Alert routes
 app.get('/api/alerts', async (_req, res) => {
   try {
-    const alerts = await Alert.find();
-    res.json(alerts);
+    const alerts = await Alert.find().exec();
+    return res.json(alerts);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
-    return;
+    return res.status(500).json({ message: 'Server Error', error });
   }
 });
 
