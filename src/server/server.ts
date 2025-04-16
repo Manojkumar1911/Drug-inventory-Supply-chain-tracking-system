@@ -53,16 +53,18 @@ app.post('/api/upload/products', upload.single('file'), async (req, res) => {
       fs.unlinkSync(req.file.path);
     }
     res.status(500).json({ message: 'Error processing CSV', error });
+    return;
   }
 });
 
 // Product routes
 app.get('/api/products', async (_req, res) => {
   try {
-    const products = await Product.find({}).lean();
+    const products = await Product.find().lean();
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
+    return;
   }
 });
 
@@ -73,26 +75,29 @@ app.post('/api/products', async (req, res) => {
     res.status(201).json(product);
   } catch (error) {
     res.status(500).json({ message: 'Error creating product', error });
+    return;
   }
 });
 
 // Transfer routes
 app.get('/api/transfers', async (_req, res) => {
   try {
-    const transfers = await Transfer.find({}).lean();
+    const transfers = await Transfer.find().lean();
     res.json(transfers);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
+    return;
   }
 });
 
 // Alert routes
 app.get('/api/alerts', async (_req, res) => {
   try {
-    const alerts = await Alert.find({}).lean();
+    const alerts = await Alert.find().lean();
     res.json(alerts);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
+    return;
   }
 });
 
