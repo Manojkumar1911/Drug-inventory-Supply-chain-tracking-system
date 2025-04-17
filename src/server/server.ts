@@ -1,5 +1,5 @@
 
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
@@ -66,7 +66,7 @@ const initRoutes = () => {
 initRoutes();
 
 // Database connection status endpoint
-app.get('/api/system/status', async (_req, res) => {
+app.get('/api/system/status', async (_req: Request, res: Response) => {
   const pgStatus = {
     connected: false,
     status: 'disconnected'
@@ -84,7 +84,7 @@ app.get('/api/system/status', async (_req, res) => {
     }
   }
 
-  return res.json({
+  res.json({
     server: {
       status: 'running',
       uptime: process.uptime(),
