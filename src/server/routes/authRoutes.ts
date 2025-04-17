@@ -26,7 +26,7 @@ export const authenticateToken = (req: express.Request, res: express.Response, n
 };
 
 // User registration
-router.post('/register', async (req: express.Request, res: express.Response) => {
+router.post('/register', async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
     
@@ -69,7 +69,7 @@ router.post('/register', async (req: express.Request, res: express.Response) => 
 });
 
 // User login
-router.post('/login', async (req: express.Request, res: express.Response) => {
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
@@ -113,10 +113,10 @@ router.post('/login', async (req: express.Request, res: express.Response) => {
 });
 
 // Get all users (protected by auth)
-router.get('/', async (_req: express.Request, res: express.Response) => {
+router.get('/', async (_req, res) => {
   try {
     // Don't return password field
-    const users = await User.find().select('-password').exec();
+    const users = await User.find().select('-password').lean().exec();
     return res.json(users);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });

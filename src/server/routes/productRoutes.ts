@@ -10,7 +10,7 @@ const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
 // CSV Upload route for Products
-router.post('/upload', upload.single('file'), async (req: express.Request, res: express.Response) => {
+router.post('/upload', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
@@ -43,9 +43,9 @@ router.post('/upload', upload.single('file'), async (req: express.Request, res: 
 });
 
 // Get all products
-router.get('/', async (_req: express.Request, res: express.Response) => {
+router.get('/', async (_req, res) => {
   try {
-    const products = await Product.find().exec();
+    const products = await Product.find().lean().exec();
     return res.json(products);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -53,7 +53,7 @@ router.get('/', async (_req: express.Request, res: express.Response) => {
 });
 
 // Create new product
-router.post('/', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     const product = new Product(req.body);
     const savedProduct = await product.save();
@@ -64,11 +64,11 @@ router.post('/', authenticateToken, async (req: express.Request, res: express.Re
 });
 
 // Get products that need to be reordered (below reorder level)
-router.get('/reorder', async (_req: express.Request, res: express.Response) => {
+router.get('/reorder', async (_req, res) => {
   try {
     const productsToReorder = await Product.find({
       $expr: { $lt: ["$quantity", "$reorderLevel"] }
-    }).exec();
+    }).lean().exec();
     return res.json(productsToReorder);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });

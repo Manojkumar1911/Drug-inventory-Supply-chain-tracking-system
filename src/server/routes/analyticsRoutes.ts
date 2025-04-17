@@ -6,7 +6,7 @@ import { authenticateToken } from './authRoutes';
 const router = express.Router();
 
 // Get analytics data
-router.get('/', async (req: express.Request, res: express.Response) => {
+router.get('/', async (req, res) => {
   try {
     const { startDate, endDate, metricType, location, category } = req.query;
     
@@ -31,7 +31,7 @@ router.get('/', async (req: express.Request, res: express.Response) => {
       query.category = category;
     }
     
-    const analytics = await Analytics.find(query).sort({ date: 1 }).exec();
+    const analytics = await Analytics.find(query).sort({ date: 1 }).lean().exec();
     return res.json(analytics);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -39,7 +39,7 @@ router.get('/', async (req: express.Request, res: express.Response) => {
 });
 
 // Create analytics data
-router.post('/', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     const { date, metricType, value, location, category, notes } = req.body;
     

@@ -6,9 +6,9 @@ import { authenticateToken } from './authRoutes';
 const router = express.Router();
 
 // Get all purchase orders
-router.get('/', async (_req: express.Request, res: express.Response) => {
+router.get('/', async (_req, res) => {
   try {
-    const orders = await PurchaseOrder.find().sort({ createdAt: -1 }).exec();
+    const orders = await PurchaseOrder.find().sort({ createdAt: -1 }).lean().exec();
     return res.json(orders);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -16,7 +16,7 @@ router.get('/', async (_req: express.Request, res: express.Response) => {
 });
 
 // Create purchase order
-router.post('/', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     // Generate order number
     const orderCount = await PurchaseOrder.countDocuments();

@@ -6,9 +6,9 @@ import { authenticateToken } from './authRoutes';
 const router = express.Router();
 
 // Get all settings
-router.get('/', async (_req: express.Request, res: express.Response) => {
+router.get('/', async (_req, res) => {
   try {
-    const settings = await Settings.find().exec();
+    const settings = await Settings.find().lean().exec();
     return res.json(settings);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -16,7 +16,7 @@ router.get('/', async (_req: express.Request, res: express.Response) => {
 });
 
 // Create or update setting
-router.post('/', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     const { key, value, group, description } = req.body;
     
@@ -50,9 +50,9 @@ router.post('/', authenticateToken, async (req: express.Request, res: express.Re
 });
 
 // Get system settings
-router.get('/system', async (_req: express.Request, res: express.Response) => {
+router.get('/system', async (_req, res) => {
   try {
-    const systemSettings = await Settings.find({ isSystem: true }).exec();
+    const systemSettings = await Settings.find({ isSystem: true }).lean().exec();
     return res.json(systemSettings);
   } catch (error) {
     return res.status(500).json({ message: 'Error fetching system settings', error });

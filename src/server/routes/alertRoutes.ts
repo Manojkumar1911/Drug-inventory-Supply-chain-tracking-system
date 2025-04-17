@@ -6,9 +6,9 @@ import { authenticateToken } from './authRoutes';
 const router = express.Router();
 
 // Get all alerts
-router.get('/', async (_req: express.Request, res: express.Response) => {
+router.get('/', async (_req, res) => {
   try {
-    const alerts = await Alert.find().sort({ createdAt: -1 }).exec();
+    const alerts = await Alert.find().sort({ createdAt: -1 }).lean().exec();
     return res.json(alerts);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -16,11 +16,11 @@ router.get('/', async (_req: express.Request, res: express.Response) => {
 });
 
 // Create alert
-router.post('/', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     const alert = new Alert(req.body);
     const savedAlert = await alert.save();
-    return res.status(201).json(savedAlert);
+    return res.json(savedAlert);
   } catch (error) {
     return res.status(500).json({ message: 'Error creating alert', error });
   }
