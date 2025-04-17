@@ -2,10 +2,21 @@
 import express, { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import User from '../models/User';
+import { Pool } from 'pg';
+import UserModel from '../models/User';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret';
+
+let userModel: UserModel;
+let pool: Pool;
+
+// Initialize model with pool
+export const initAuthRoutes = (dbPool: Pool) => {
+  pool = dbPool;
+  userModel = new UserModel(pool);
+  return router;
+};
 
 // Authentication middleware
 export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
@@ -31,23 +42,21 @@ router.post('/register', async (req: Request, res: Response) => {
     const { name, email, password, role } = req.body;
     
     // Check if user already exists
-    const existingUser = await User.findOne({ email }).lean().exec();
+    const existingUser = await userModel.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
     
-    const user = new User({
+    const user = await userModel.create({
       name,
       email,
       password,
       role: role || 'staff'
     });
     
-    const savedUser = await user.save();
-    
     // Create token
     const token = jwt.sign(
-      { id: savedUser._id, email: savedUser.email, role: savedUser.role },
+      { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '1d' }
     );
@@ -55,10 +64,10 @@ router.post('/register', async (req: Request, res: Response) => {
     res.status(201).json({
       token,
       user: {
-        id: savedUser._id,
-        name: savedUser.name,
-        email: savedUser.email,
-        role: savedUser.role
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
       }
     });
     
@@ -74,24 +83,23 @@ router.post('/login', async (req: Request, res: Response) => {
     const { email, password } = req.body;
     
     // Check if user exists
-    const user = await User.findOne({ email });
+    const user = await userModel.findByEmail(email);
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
     
     // Check password
-    const validPassword = await user.comparePassword(password);
+    const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
     
     // Update last login time
-    user.lastLogin = new Date();
-    await user.save();
+    await userModel.update(user.id!, { last_login: new Date() });
     
     // Create token
     const token = jwt.sign(
-      { id: user._id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '1d' }
     );
@@ -99,7 +107,7 @@ router.post('/login', async (req: Request, res: Response) => {
     res.status(200).json({
       token,
       user: {
-        id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role
@@ -115,9 +123,13 @@ router.post('/login', async (req: Request, res: Response) => {
 // Get all users (protected by auth)
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    // Don't return password field
-    const users = await User.find().select('-password').lean().exec();
-    res.json(users);
+    const users = await userModel.find();
+    // Remove password field from response
+    const safeUsers = users.map(user => {
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    });
+    res.json(safeUsers);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }

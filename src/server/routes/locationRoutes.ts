@@ -1,14 +1,22 @@
 
 import express, { Request, Response } from 'express';
-import Location from '../models/Location';
+import { Pool } from 'pg';
+import LocationModel from '../models/Location';
 import { authenticateToken } from './authRoutes';
 
 const router = express.Router();
+let locationModel: LocationModel;
+
+// Initialize model with pool
+export const initLocationRoutes = (pool: Pool) => {
+  locationModel = new LocationModel(pool);
+  return router;
+};
 
 // Get all locations
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const locations = await Location.find().lean().exec();
+    const locations = await locationModel.find();
     res.json(locations);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -18,9 +26,8 @@ router.get('/', async (_req: Request, res: Response) => {
 // Create location
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const location = new Location(req.body);
-    const savedLocation = await location.save();
-    res.status(201).json(savedLocation);
+    const location = await locationModel.create(req.body);
+    res.status(201).json(location);
   } catch (error) {
     res.status(500).json({ message: 'Error creating location', error });
   }

@@ -1,68 +1,140 @@
 
-import mongoose from 'mongoose';
+import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 
-interface IUser extends mongoose.Document {
-  email: string;
-  role: 'admin' | 'manager' | 'staff';
+export interface IUser {
+  id?: number;
   name: string;
+  email: string;
   password: string;
-  isActive: boolean;
-  lastLogin?: Date;
-  createdBy?: string;
-  updatedBy?: string;
-  resetPasswordToken?: string;
-  resetPasswordExpires?: Date;
-  comparePassword(candidatePassword: string): Promise<boolean>;
+  role: 'admin' | 'manager' | 'staff';
+  is_active?: boolean;
+  last_login?: Date;
+  created_by?: string;
+  updated_by?: string;
+  reset_password_token?: string;
+  reset_password_expires?: Date;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
-const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  role: { 
-    type: String, 
-    enum: ['admin', 'manager', 'staff'],
-    default: 'staff',
-    required: true
-  },
-  isActive: { type: Boolean, default: true },
-  lastLogin: { type: Date },
-  createdBy: { type: String },
-  updatedBy: { type: String },
-  resetPasswordToken: { type: String },
-  resetPasswordExpires: { type: Date }
-}, { timestamps: true });
+class UserModel {
+  private pool: Pool;
 
-// Pre-save hook to hash password
-userSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified or is new
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error as Error);
+  constructor(pool: Pool) {
+    this.pool = pool;
   }
-});
 
-// Method to compare passwords
-userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  try {
-    return await bcrypt.compare(candidatePassword, this.password);
-  } catch (error) {
-    throw error;
+  async findById(id: number): Promise<IUser | null> {
+    try {
+      const result = await this.pool.query('SELECT * FROM users WHERE id = $1', [id]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Error finding user by id:', error);
+      throw error;
+    }
   }
-};
 
-// Fix the virtual property
-userSchema.virtual('fullName').get(function() {
-  return this.name;
-});
+  async findByEmail(email: string): Promise<IUser | null> {
+    try {
+      const result = await this.pool.query('SELECT * FROM users WHERE email = $1', [email]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Error finding user by email:', error);
+      throw error;
+    }
+  }
 
-const User = mongoose.models.User as mongoose.Model<IUser> || 
-  mongoose.model<IUser>('User', userSchema);
+  async find(conditions?: Partial<IUser>): Promise<IUser[]> {
+    try {
+      if (!conditions || Object.keys(conditions).length === 0) {
+        const result = await this.pool.query('SELECT * FROM users ORDER BY created_at DESC');
+        return result.rows;
+      }
 
-export default User;
+      const keys = Object.keys(conditions);
+      const values = Object.values(conditions);
+      
+      let query = 'SELECT * FROM users WHERE ';
+      query += keys.map((key, index) => `${key} = $${index + 1}`).join(' AND ');
+      query += ' ORDER BY created_at DESC';
+
+      const result = await this.pool.query(query, values);
+      return result.rows;
+    } catch (error) {
+      console.error('Error finding users:', error);
+      throw error;
+    }
+  }
+
+  async create(userData: IUser): Promise<IUser> {
+    try {
+      // Hash password
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      
+      const result = await this.pool.query(
+        `INSERT INTO users 
+        (name, email, password, role, is_active, created_by, updated_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7) 
+        RETURNING *`,
+        [
+          userData.name,
+          userData.email,
+          hashedPassword,
+          userData.role,
+          userData.is_active !== undefined ? userData.is_active : true,
+          userData.created_by || null,
+          userData.updated_by || null
+        ]
+      );
+
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  }
+
+  async update(id: number, userData: Partial<IUser>): Promise<IUser | null> {
+    try {
+      const user = await this.findById(id);
+      if (!user) return null;
+
+      const updates: any = { ...userData };
+      
+      // Hash password if it's being updated
+      if (updates.password) {
+        updates.password = await bcrypt.hash(updates.password, 10);
+      }
+
+      const keys = Object.keys(updates);
+      const values = Object.values(updates);
+      
+      if (keys.length === 0) return user;
+
+      let query = 'UPDATE users SET ';
+      query += keys.map((key, index) => `${key} = $${index + 1}`).join(', ');
+      query += `, updated_at = NOW() WHERE id = $${keys.length + 1} RETURNING *`;
+
+      const result = await this.pool.query(query, [...values, id]);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  }
+
+  async comparePassword(userId: number, candidatePassword: string): Promise<boolean> {
+    try {
+      const user = await this.findById(userId);
+      if (!user) return false;
+      
+      return bcrypt.compare(candidatePassword, user.password);
+    } catch (error) {
+      console.error('Error comparing password:', error);
+      throw error;
+    }
+  }
+}
+
+export default UserModel;

@@ -7,7 +7,7 @@ declare global {
     interface Request {
       body: {
         user?: {
-          id: string;
+          id: number;
           email: string;
           role: string;
           [key: string]: any;

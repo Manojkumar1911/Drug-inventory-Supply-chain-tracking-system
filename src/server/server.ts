@@ -2,16 +2,17 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { Pool } from 'pg';
 import connectDB from './db';
-import systemMonitor from './utils/systemMonitor';
-import dbHealthCheck from './utils/dbHealthCheck';
+import initializeDatabase from './initDb';
+import { createModels } from './models';
 
 // Routes
 import authRoutes, { authenticateToken } from './routes/authRoutes';
 import productRoutes from './routes/productRoutes';
 import transferRoutes from './routes/transferRoutes';
-import alertRoutes from './routes/alertRoutes';
-import locationRoutes from './routes/locationRoutes';
+import alertRoutes, { initAlertRoutes } from './routes/alertRoutes';
+import locationRoutes, { initLocationRoutes } from './routes/locationRoutes';
 import supplierRoutes from './routes/supplierRoutes';
 import purchaseOrderRoutes from './routes/purchaseOrderRoutes';
 import settingsRoutes from './routes/settingsRoutes';
@@ -26,15 +27,31 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Connect to MongoDB
-const dbConnection = connectDB();
+// Connect to PostgreSQL
+const pool = connectDB() as Pool;
+
+// Initialize database if needed
+if (pool) {
+  initializeDatabase()
+    .then((initialized) => {
+      if (initialized) {
+        console.log('Database schema initialized successfully');
+      }
+    })
+    .catch(error => {
+      console.error('Failed to initialize database schema:', error);
+    });
+}
+
+// Create models
+const models = pool ? createModels(pool) : null;
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/transfers', transferRoutes);
-app.use('/api/alerts', alertRoutes);
-app.use('/api/locations', locationRoutes);
+app.use('/api/alerts', initAlertRoutes(pool));
+app.use('/api/locations', initLocationRoutes(pool));
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/settings', settingsRoutes);
@@ -42,22 +59,21 @@ app.use('/api/analytics', analyticsRoutes);
 
 // Database connection status endpoint
 app.get('/api/system/status', async (_req, res) => {
-  const mongoStatus = {
+  const pgStatus = {
     connected: false,
     status: 'disconnected'
   };
 
-  const readyState = {
-    0: 'disconnected',
-    1: 'connected',
-    2: 'connecting',
-    3: 'disconnecting'
-  };
-
-  if (dbConnection) {
-    const state = dbConnection.connection?.readyState || 0;
-    mongoStatus.connected = state === 1;
-    mongoStatus.status = readyState[state as keyof typeof readyState] || 'unknown';
+  if (pool) {
+    try {
+      await pool.query('SELECT 1');
+      pgStatus.connected = true;
+      pgStatus.status = 'connected';
+    } catch (error) {
+      pgStatus.connected = false;
+      pgStatus.status = 'error';
+      console.error('Database status check error:', error);
+    }
   }
 
   return res.json({
@@ -66,54 +82,20 @@ app.get('/api/system/status', async (_req, res) => {
       uptime: process.uptime(),
       timestamp: new Date()
     },
-    database: mongoStatus,
-    monitoring: {
-      systemMonitorActive: systemMonitor.monitoringActive || false,
-      dbHealthCheckActive: dbHealthCheck.isMonitoring || false
-    }
+    database: pgStatus
   });
-});
-
-// Start automated monitoring
-app.post('/api/system/monitoring/start', authenticateToken, (_req, res) => {
-  try {
-    systemMonitor.startMonitoring();
-    dbHealthCheck.startMonitoring();
-    return res.json({ message: 'System monitoring started successfully' });
-  } catch (error) {
-    return res.status(500).json({ message: 'Error starting monitoring', error });
-  }
-});
-
-// Stop automated monitoring
-app.post('/api/system/monitoring/stop', authenticateToken, (_req, res) => {
-  try {
-    systemMonitor.stopMonitoring();
-    dbHealthCheck.stopMonitoring();
-    return res.json({ message: 'System monitoring stopped successfully' });
-  } catch (error) {
-    return res.status(500).json({ message: 'Error stopping monitoring', error });
-  }
 });
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`MongoDB connection status: ${dbConnection ? 'OK' : 'Failed'}`);
-  
-  // Start system monitoring
-  try {
-    systemMonitor.startMonitoring();
-    dbHealthCheck.startMonitoring();
-    console.log('Automatic system monitoring started');
-  } catch (error) {
-    console.error('Failed to start system monitoring:', error);
-  }
+  console.log(`PostgreSQL connection status: ${pool ? 'OK' : 'Failed'}`);
 });
 
 // Handle process termination
 process.on('SIGINT', () => {
   console.log('Server shutting down...');
-  systemMonitor.stopMonitoring();
-  dbHealthCheck.stopMonitoring();
+  if (pool) {
+    pool.end();
+  }
   process.exit(0);
 });
