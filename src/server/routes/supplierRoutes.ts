@@ -8,10 +8,10 @@ const router = express.Router();
 // Get all suppliers
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const suppliers = await Supplier.find().lean();
-    return res.json(suppliers);
+    const suppliers = await Supplier.find().lean().exec();
+    res.json(suppliers);
   } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
@@ -20,9 +20,9 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const supplier = new Supplier(req.body);
     const savedSupplier = await supplier.save();
-    return res.status(201).json(savedSupplier);
+    res.status(201).json(savedSupplier);
   } catch (error) {
-    return res.status(500).json({ message: 'Error creating supplier', error });
+    res.status(500).json({ message: 'Error creating supplier', error });
   }
 });
 

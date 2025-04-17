@@ -31,10 +31,10 @@ router.get('/', async (req: Request, res: Response) => {
       query.category = category;
     }
     
-    const analytics = await Analytics.find(query).sort({ date: 1 }).lean();
-    return res.json(analytics);
+    const analytics = await Analytics.find(query).sort({ date: 1 }).lean().exec();
+    res.json(analytics);
   } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
@@ -49,19 +49,16 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       metricType,
       location: location || null,
       category: category || null
-    }).lean();
+    }).lean().exec();
     
     if (existingMetric) {
       // Update existing metric
-      existingMetric.value = value;
-      existingMetric.notes = notes || existingMetric.notes;
-      
       const updatedMetric = await Analytics.findByIdAndUpdate(
         existingMetric._id, 
         { $set: { value, notes: notes || existingMetric.notes } }, 
         { new: true }
-      ).lean();
-      return res.json(updatedMetric);
+      ).lean().exec();
+      res.json(updatedMetric);
     } else {
       // Create new metric
       const metric = new Analytics({
@@ -74,10 +71,10 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       });
       
       const savedMetric = await metric.save();
-      return res.status(201).json(savedMetric);
+      res.status(201).json(savedMetric);
     }
   } catch (error) {
-    return res.status(500).json({ message: 'Error saving analytics', error });
+    res.status(500).json({ message: 'Error saving analytics', error });
   }
 });
 

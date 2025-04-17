@@ -8,10 +8,10 @@ const router = express.Router();
 // Get all alerts
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const alerts = await Alert.find().sort({ createdAt: -1 }).lean();
-    return res.json(alerts);
+    const alerts = await Alert.find().sort({ createdAt: -1 }).lean().exec();
+    res.json(alerts);
   } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
@@ -20,9 +20,9 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const alert = new Alert(req.body);
     const savedAlert = await alert.save();
-    return res.json(savedAlert);
+    res.json(savedAlert);
   } catch (error) {
-    return res.status(500).json({ message: 'Error creating alert', error });
+    res.status(500).json({ message: 'Error creating alert', error });
   }
 });
 

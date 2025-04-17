@@ -1,5 +1,6 @@
 
 import 'express';
+import { JwtPayload } from 'jsonwebtoken';
 
 declare global {
   namespace Express {
@@ -10,7 +11,7 @@ declare global {
           email: string;
           role: string;
           [key: string]: any;
-        };
+        } & JwtPayload;
         [key: string]: any;
       };
     }

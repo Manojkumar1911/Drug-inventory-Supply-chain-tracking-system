@@ -29,7 +29,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     await Product.insertMany(results);
     fs.unlinkSync(req.file.path);
     
-    return res.status(200).json({ 
+    res.status(200).json({ 
       message: 'CSV uploaded successfully', 
       count: results.length 
     });
@@ -38,17 +38,17 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }
-    return res.status(500).json({ message: 'Error processing CSV', error });
+    res.status(500).json({ message: 'Error processing CSV', error });
   }
 });
 
 // Get all products
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const products = await Product.find().lean();
-    return res.json(products);
+    const products = await Product.find().lean().exec();
+    res.json(products);
   } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
@@ -57,9 +57,9 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const product = new Product(req.body);
     const savedProduct = await product.save();
-    return res.status(201).json(savedProduct);
+    res.status(201).json(savedProduct);
   } catch (error) {
-    return res.status(500).json({ message: 'Error creating product', error });
+    res.status(500).json({ message: 'Error creating product', error });
   }
 });
 
@@ -68,10 +68,10 @@ router.get('/reorder', async (_req: Request, res: Response) => {
   try {
     const productsToReorder = await Product.find({
       $expr: { $lt: ["$quantity", "$reorderLevel"] }
-    }).lean();
-    return res.json(productsToReorder);
+    }).lean().exec();
+    res.json(productsToReorder);
   } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 

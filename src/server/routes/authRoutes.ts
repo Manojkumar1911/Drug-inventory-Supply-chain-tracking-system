@@ -31,7 +31,7 @@ router.post('/register', async (req: Request, res: Response) => {
     const { name, email, password, role } = req.body;
     
     // Check if user already exists
-    const existingUser = await User.findOne({ email }).lean();
+    const existingUser = await User.findOne({ email }).lean().exec();
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
@@ -52,7 +52,7 @@ router.post('/register', async (req: Request, res: Response) => {
       { expiresIn: '1d' }
     );
     
-    return res.status(201).json({
+    res.status(201).json({
       token,
       user: {
         id: savedUser._id,
@@ -64,7 +64,7 @@ router.post('/register', async (req: Request, res: Response) => {
     
   } catch (error) {
     console.error('Registration error:', error);
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
@@ -96,7 +96,7 @@ router.post('/login', async (req: Request, res: Response) => {
       { expiresIn: '1d' }
     );
     
-    return res.status(200).json({
+    res.status(200).json({
       token,
       user: {
         id: user._id,
@@ -108,7 +108,7 @@ router.post('/login', async (req: Request, res: Response) => {
     
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
@@ -116,10 +116,10 @@ router.post('/login', async (req: Request, res: Response) => {
 router.get('/', async (_req: Request, res: Response) => {
   try {
     // Don't return password field
-    const users = await User.find().select('-password').lean();
-    return res.json(users);
+    const users = await User.find().select('-password').lean().exec();
+    res.json(users);
   } catch (error) {
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
