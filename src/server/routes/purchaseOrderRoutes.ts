@@ -87,11 +87,11 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       [purchaseOrder.id]
     );
     
-    res.status(201).json(completeOrderResult.rows[0]);
+    return res.status(201).json(completeOrderResult.rows[0]);
   } catch (error) {
     // Rollback transaction on error
     await pool.query('ROLLBACK');
-    res.status(500).json({ message: 'Error creating purchase order', error });
+    return res.status(500).json({ message: 'Error creating purchase order', error });
   }
 });
 

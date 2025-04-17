@@ -8,7 +8,7 @@ import initializeDatabase from './initDb';
 import { createModels } from './models';
 
 // Routes
-import authRoutes, { initAuthRoutes, authenticateToken } from './routes/authRoutes';
+import authRoutes, { initAuthRoutes } from './routes/authRoutes';
 import productRoutes, { initProductRoutes } from './routes/productRoutes';
 import transferRoutes, { initTransferRoutes } from './routes/transferRoutes';
 import alertRoutes, { initAlertRoutes } from './routes/alertRoutes';

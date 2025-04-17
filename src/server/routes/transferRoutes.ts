@@ -108,11 +108,11 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
     // Commit transaction
     await pool.query('COMMIT');
     
-    res.status(201).json(transferResult.rows[0]);
+    return res.status(201).json(transferResult.rows[0]);
   } catch (error) {
     // Rollback transaction on error
     await pool.query('ROLLBACK');
-    res.status(500).json({ message: 'Error creating transfer', error });
+    return res.status(500).json({ message: 'Error creating transfer', error });
   }
 });
 

@@ -58,7 +58,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     
     fs.unlinkSync(req.file.path);
     
-    res.status(200).json({ 
+    return res.status(200).json({ 
       message: 'CSV uploaded successfully', 
       count: insertedCount
     });
@@ -67,7 +67,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }
-    res.status(500).json({ message: 'Error processing CSV', error });
+    return res.status(500).json({ message: 'Error processing CSV', error });
   }
 });
 
@@ -94,9 +94,9 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       [name, sku, category, quantity, unit, location, expiryDate, reorderLevel, manufacturer]
     );
     
-    res.status(201).json(result.rows[0]);
+    return res.status(201).json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating product', error });
+    return res.status(500).json({ message: 'Error creating product', error });
   }
 });
 

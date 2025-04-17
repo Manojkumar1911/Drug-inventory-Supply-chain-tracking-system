@@ -1,117 +1,128 @@
 
-import mongoose from 'mongoose';
-import Alert from '../models/Alert';
+import { Pool } from 'pg';
+import AlertModel from '../models/Alert';
 
-class DatabaseHealthCheck {
-  private isMonitoring: boolean = false;
-  private monitoringInterval: NodeJS.Timeout | null = null;
-  private lastConnectionState: number = 0;
+interface DatabaseStatus {
+  status: 'connected' | 'disconnected' | 'error';
+  lastCheckedAt: Date;
+  error?: any;
+  responseTime?: number;
+}
 
-  startMonitoring(interval: number = 5 * 60 * 1000) { // Default 5 minutes
-    if (this.isMonitoring) return;
-    
-    console.log('Starting database health monitoring...');
-    this.isMonitoring = true;
-    this.lastConnectionState = mongoose.connection.readyState;
-    
-    this.monitoringInterval = setInterval(() => {
-      this.checkDatabaseHealth();
-    }, interval);
+// Singleton to track database health
+export class DatabaseHealthMonitor {
+  private static _instance: DatabaseHealthMonitor;
+  private pool: Pool;
+  private alertModel: AlertModel;
+  private status: DatabaseStatus = {
+    status: 'disconnected',
+    lastCheckedAt: new Date(),
+  };
+  private checkInterval: NodeJS.Timeout | null = null;
+
+  private constructor(pool: Pool, alertModel: AlertModel) {
+    this.pool = pool;
+    this.alertModel = alertModel;
   }
 
-  stopMonitoring() {
-    if (!this.isMonitoring || !this.monitoringInterval) return;
-    
-    console.log('Stopping database health monitoring...');
-    clearInterval(this.monitoringInterval);
-    this.isMonitoring = false;
-    this.monitoringInterval = null;
+  public static getInstance(pool: Pool, alertModel: AlertModel): DatabaseHealthMonitor {
+    if (!DatabaseHealthMonitor._instance) {
+      DatabaseHealthMonitor._instance = new DatabaseHealthMonitor(pool, alertModel);
+    }
+    return DatabaseHealthMonitor._instance;
   }
 
-  private async checkDatabaseHealth() {
+  // Start monitoring at regular intervals
+  public startMonitoring(intervalMs = 60000): void {
+    this.checkHealth();
+
+    if (this.checkInterval !== null) {
+      clearInterval(this.checkInterval);
+    }
+
+    this.checkInterval = setInterval(() => {
+      this.checkHealth();
+    }, intervalMs);
+  }
+
+  public stopMonitoring(): void {
+    if (this.checkInterval !== null) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
+    }
+  }
+
+  // Get current database status
+  public getStatus(): DatabaseStatus {
+    return { ...this.status };
+  }
+
+  // Check database connection health
+  private async checkHealth(): Promise<void> {
+    const startTime = Date.now();
     try {
-      const currentState = mongoose.connection.readyState;
+      // Test connection with a simple query
+      await this.pool.query('SELECT 1 AS connection_test');
+
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
+
+      // Connection is working
+      const previousStatus = this.status.status;
       
-      // Connection state changed
-      if (currentState !== this.lastConnectionState) {
-        console.log(`Database connection state changed from ${this.getReadyStateText(this.lastConnectionState)} to ${this.getReadyStateText(currentState)}`);
-        
-        // If disconnected
-        if (currentState === 0) {
-          await this.createConnectionAlert('Database Disconnected', 
-            'MongoDB connection lost. System functionality may be impaired.', 
-            'critical');
-        }
-        
-        // If reconnected
-        if (this.lastConnectionState === 0 && currentState === 1) {
-          await this.createConnectionAlert('Database Reconnected', 
-            'MongoDB connection re-established. System returning to normal operation.',
-            'low');
-        }
-        
-        this.lastConnectionState = currentState;
+      this.status = {
+        status: 'connected',
+        lastCheckedAt: new Date(),
+        responseTime,
+      };
+
+      // If we've recovered from a disconnected state, create a recovery alert
+      if (previousStatus === 'error' || previousStatus === 'disconnected') {
+        await this.createConnectionRecoveryAlert(responseTime);
       }
-      
-      // If connected, check response time
-      if (currentState === 1) {
-        await this.checkResponseTime();
-      }
-      
     } catch (error) {
-      console.error('Error checking database health:', error);
+      this.status = {
+        status: 'error',
+        lastCheckedAt: new Date(),
+        error,
+      };
+
+      // Create an alert for the connection failure
+      await this.createConnectionFailureAlert(error);
     }
   }
-  
-  private async checkResponseTime() {
+
+  // Create alert for database connection failure
+  private async createConnectionFailureAlert(error: any): Promise<void> {
     try {
-      const start = Date.now();
-      
-      // Simple ping to check DB response time
-      await mongoose.connection.db.admin().ping();
-      
-      const responseTime = Date.now() - start;
-      console.log(`Database response time: ${responseTime}ms`);
-      
-      // Alert if response time is too high (over 1 second)
-      if (responseTime > 1000) {
-        await this.createConnectionAlert('Database Performance Issue', 
-          `Slow database response time detected (${responseTime}ms). This may affect system performance.`,
-          'medium');
-      }
-    } catch (error) {
-      console.error('Error checking database response time:', error);
-    }
-  }
-  
-  private getReadyStateText(state: number): string {
-    switch (state) {
-      case 0: return 'disconnected';
-      case 1: return 'connected';
-      case 2: return 'connecting';
-      case 3: return 'disconnecting';
-      default: return 'unknown';
-    }
-  }
-  
-  private async createConnectionAlert(title: string, description: string, severity: 'critical' | 'high' | 'medium' | 'low') {
-    try {
-      const alert = new Alert({
-        title,
-        description,
-        severity,
+      await this.alertModel.create({
+        title: 'Database Connection Error',
+        description: `Database connection failed: ${error.message || 'Unknown error'}`,
+        severity: 'critical',
         status: 'New',
         category: 'System',
-        location: 'Database',
-        timestamp: new Date()
+        location: 'Database'
       });
-      
-      await alert.save();
-      console.log(`Database alert created: ${title}`);
-    } catch (error) {
-      console.error('Error creating database alert:', error);
+    } catch (err) {
+      console.error('Failed to create connection failure alert:', err);
+    }
+  }
+
+  // Create alert for database connection recovery
+  private async createConnectionRecoveryAlert(responseTime: number): Promise<void> {
+    try {
+      await this.alertModel.create({
+        title: 'Database Connection Restored',
+        description: `Database connection has been restored. Response time: ${responseTime}ms`,
+        severity: 'low',
+        status: 'New',
+        category: 'System',
+        location: 'Database'
+      });
+    } catch (err) {
+      console.error('Failed to create connection recovery alert:', err);
     }
   }
 }
 
-export default new DatabaseHealthCheck();
+export default DatabaseHealthMonitor;

@@ -73,6 +73,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
         [value, notes || existingResult.rows[0].notes, existingResult.rows[0].id]
       );
       res.json(updatedResult.rows[0]);
+      return;
     } else {
       // Create new metric
       const result = await pool.query(
@@ -84,9 +85,11 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       );
       
       res.status(201).json(result.rows[0]);
+      return;
     }
   } catch (error) {
     res.status(500).json({ message: 'Error saving analytics', error });
+    return;
   }
 });
 

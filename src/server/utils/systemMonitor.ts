@@ -1,121 +1,143 @@
 
-import { EventEmitter } from 'events';
-import mongoose from 'mongoose';
-import Product from '../models/Product';
-import Alert from '../models/Alert';
+import { Pool } from 'pg';
+import os from 'os';
+import AlertModel from '../models/Alert';
+import ProductModel from '../models/Product';
 
-class SystemMonitor extends EventEmitter {
-  private monitoringActive: boolean = false;
-  private monitoringIntervals: NodeJS.Timeout[] = [];
+export class SystemMonitor {
+  private static _instance: SystemMonitor;
+  private pool: Pool;
+  private alertModel: AlertModel;
+  private productModel: ProductModel;
+  private monitorInterval: NodeJS.Timeout | null = null;
 
-  constructor() {
-    super();
-    this.setupEventListeners();
+  private constructor(pool: Pool, alertModel: AlertModel, productModel: ProductModel) {
+    this.pool = pool;
+    this.alertModel = alertModel;
+    this.productModel = productModel;
   }
 
-  private setupEventListeners() {
-    this.on('lowStock', async (product) => {
-      try {
-        console.log(`Low stock alert triggered for ${product.name}`);
-        await this.createAlert({
-          title: 'Low Stock Alert',
-          description: `${product.name} (SKU: ${product.sku}) is below reorder level. Current quantity: ${product.quantity}, Reorder level: ${product.reorderLevel}`,
-          severity: 'high',
+  public static getInstance(pool: Pool, alertModel: AlertModel, productModel: ProductModel): SystemMonitor {
+    if (!SystemMonitor._instance) {
+      SystemMonitor._instance = new SystemMonitor(pool, alertModel, productModel);
+    }
+    return SystemMonitor._instance;
+  }
+
+  // Start system monitoring
+  public startMonitoring(intervalMs = 300000): void {
+    this.checkSystem();
+
+    if (this.monitorInterval !== null) {
+      clearInterval(this.monitorInterval);
+    }
+
+    this.monitorInterval = setInterval(() => {
+      this.checkSystem();
+    }, intervalMs);
+  }
+
+  public stopMonitoring(): void {
+    if (this.monitorInterval !== null) {
+      clearInterval(this.monitorInterval);
+      this.monitorInterval = null;
+    }
+  }
+
+  // Perform system checks
+  private async checkSystem(): Promise<void> {
+    await Promise.all([
+      this.checkServerResources(),
+      this.checkInventoryLevels()
+    ]);
+  }
+
+  // Check server resources (CPU, memory)
+  private async checkServerResources(): Promise<void> {
+    try {
+      const cpuUsage = os.loadavg()[0] / os.cpus().length; // Normalize by CPU count
+      const totalMemory = os.totalmem();
+      const freeMemory = os.freemem();
+      const memUsagePercent = ((totalMemory - freeMemory) / totalMemory) * 100;
+
+      // Create alerts if resources above threshold
+      if (cpuUsage > 0.8) { // 80% CPU usage
+        await this.alertModel.create({
+          title: 'High CPU Usage',
+          description: `Server CPU usage is high (${(cpuUsage * 100).toFixed(2)}%)`,
+          severity: memUsagePercent > 90 ? 'critical' : 'high',
+          status: 'New',
+          category: 'System',
+          location: 'Server'
+        });
+      }
+
+      if (memUsagePercent > 85) { // 85% memory usage
+        await this.alertModel.create({
+          title: 'High Memory Usage',
+          description: `Server memory usage is high (${memUsagePercent.toFixed(2)}%)`,
+          severity: memUsagePercent > 95 ? 'critical' : 'high',
+          status: 'New',
+          category: 'System',
+          location: 'Server'
+        });
+      }
+
+      // Record system metrics in analytics table
+      await this.pool.query(
+        `INSERT INTO analytics 
+        (date, metric_type, value, location, category, notes, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+        [
+          new Date(), 
+          'cpu_usage', 
+          cpuUsage * 100, 
+          'Server',
+          'System',
+          'Automated system monitor'
+        ]
+      );
+
+      await this.pool.query(
+        `INSERT INTO analytics 
+        (date, metric_type, value, location, category, notes, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+        [
+          new Date(), 
+          'memory_usage', 
+          memUsagePercent, 
+          'Server',
+          'System',
+          'Automated system monitor'
+        ]
+      );
+
+    } catch (error) {
+      console.error('Error monitoring server resources:', error);
+    }
+  }
+
+  // Check inventory levels
+  private async checkInventoryLevels(): Promise<void> {
+    try {
+      // Find products that are below reorder level
+      const lowStockProducts = await this.productModel.findProductsToReorder();
+      
+      for (const product of lowStockProducts) {
+        // Create alerts for products below threshold
+        await this.alertModel.create({
+          title: 'Low Inventory Alert',
+          description: `${product.name} (SKU: ${product.sku}) is below reorder level. Current quantity: ${product.quantity}, Reorder Level: ${product.reorder_level}`,
+          severity: product.quantity === 0 ? 'critical' : (product.quantity < product.reorder_level / 2 ? 'high' : 'medium'),
           status: 'New',
           category: 'Inventory',
-          location: product.location,
+          location: product.location
         });
-      } catch (error) {
-        console.error('Error handling low stock event:', error);
       }
-    });
-
-    this.on('expiryAlert', async (product) => {
-      try {
-        const daysToExpiry = Math.ceil((product.expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-        console.log(`Expiry alert triggered for ${product.name}. ${daysToExpiry} days until expiry.`);
-        
-        await this.createAlert({
-          title: 'Product Expiry Alert',
-          description: `${product.name} (SKU: ${product.sku}) will expire in ${daysToExpiry} days. Location: ${product.location}, Quantity: ${product.quantity}`,
-          severity: daysToExpiry <= 15 ? 'critical' : 'medium',
-          status: 'New',
-          category: 'Expiry',
-          location: product.location,
-        });
-      } catch (error) {
-        console.error('Error handling expiry event:', error);
-      }
-    });
-  }
-
-  private async createAlert(alertData: any) {
-    try {
-      const alert = new Alert({
-        ...alertData,
-        timestamp: new Date()
-      });
-      await alert.save();
-      console.log('Alert created successfully');
     } catch (error) {
-      console.error('Error creating alert:', error);
+      console.error('Error checking inventory levels:', error);
     }
-  }
-
-  startMonitoring() {
-    if (this.monitoringActive) return;
-    
-    console.log('Starting system monitoring...');
-    this.monitoringActive = true;
-    
-    // Check for low stock items every hour
-    this.monitoringIntervals.push(setInterval(async () => {
-      if (!mongoose.connection.readyState) return;
-      
-      try {
-        const lowStockItems = await Product.find({
-          $expr: { $lt: ["$quantity", "$reorderLevel"] }
-        }).exec();
-        
-        for (const item of lowStockItems) {
-          this.emit('lowStock', item);
-        }
-      } catch (error) {
-        console.error('Error monitoring low stock:', error);
-      }
-    }, 60 * 60 * 1000)); // Every hour
-    
-    // Check for expiring items daily
-    this.monitoringIntervals.push(setInterval(async () => {
-      if (!mongoose.connection.readyState) return;
-      
-      try {
-        const thirtyDaysFromNow = new Date();
-        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-        
-        const expiringItems = await Product.find({
-          expiryDate: { $ne: null, $lt: thirtyDaysFromNow }
-        }).exec();
-        
-        for (const item of expiringItems) {
-          this.emit('expiryAlert', item);
-        }
-      } catch (error) {
-        console.error('Error monitoring expiry dates:', error);
-      }
-    }, 24 * 60 * 60 * 1000)); // Every 24 hours
-  }
-
-  stopMonitoring() {
-    console.log('Stopping system monitoring...');
-    this.monitoringActive = false;
-    
-    for (const interval of this.monitoringIntervals) {
-      clearInterval(interval);
-    }
-    
-    this.monitoringIntervals = [];
   }
 }
 
-export default new SystemMonitor();
+export default SystemMonitor;
