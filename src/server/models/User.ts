@@ -57,9 +57,9 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
   }
 };
 
-// Virtual for fullname
+// Virtual for fullname - fixed to use name instead of firstName + lastName
 userSchema.virtual('fullName').get(function() {
-  return `${this.firstName} ${this.lastName}`;
+  return this.name;
 });
 
 const User = mongoose.models.User as mongoose.Model<IUser> || 
