@@ -1,12 +1,12 @@
 
-import express from 'express';
+import express, { Request, Response } from 'express';
 import Analytics from '../models/Analytics';
 import { authenticateToken } from './authRoutes';
 
 const router = express.Router();
 
 // Get analytics data
-router.get('/', async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, metricType, location, category } = req.query;
     
@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
       query.category = category;
     }
     
-    const analytics = await Analytics.find(query).sort({ date: 1 }).lean().exec();
+    const analytics = await Analytics.find(query).sort({ date: 1 }).lean();
     return res.json(analytics);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -39,7 +39,7 @@ router.get('/', async (req, res) => {
 });
 
 // Create analytics data
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { date, metricType, value, location, category, notes } = req.body;
     
@@ -49,14 +49,18 @@ router.post('/', authenticateToken, async (req, res) => {
       metricType,
       location: location || null,
       category: category || null
-    }).exec();
+    }).lean();
     
     if (existingMetric) {
       // Update existing metric
       existingMetric.value = value;
       existingMetric.notes = notes || existingMetric.notes;
       
-      const updatedMetric = await existingMetric.save();
+      const updatedMetric = await Analytics.findByIdAndUpdate(
+        existingMetric._id, 
+        { $set: { value, notes: notes || existingMetric.notes } }, 
+        { new: true }
+      ).lean();
       return res.json(updatedMetric);
     } else {
       // Create new metric

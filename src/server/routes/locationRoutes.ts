@@ -1,14 +1,14 @@
 
-import express from 'express';
+import express, { Request, Response } from 'express';
 import Location from '../models/Location';
 import { authenticateToken } from './authRoutes';
 
 const router = express.Router();
 
 // Get all locations
-router.get('/', async (_req, res) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
-    const locations = await Location.find().lean().exec();
+    const locations = await Location.find().lean();
     return res.json(locations);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -16,7 +16,7 @@ router.get('/', async (_req, res) => {
 });
 
 // Create location
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const location = new Location(req.body);
     const savedLocation = await location.save();

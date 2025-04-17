@@ -57,8 +57,8 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
   }
 };
 
-// Virtual for fullname - use name directly
-userSchema.virtual('fullName').get(function(this: IUser) {
+// Fix the virtual property
+userSchema.virtual('fullName').get(function() {
   return this.name;
 });
 

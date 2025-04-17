@@ -1,5 +1,5 @@
 
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
@@ -8,7 +8,7 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret';
 
 // Authentication middleware
-export const authenticateToken = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   
@@ -26,12 +26,12 @@ export const authenticateToken = (req: express.Request, res: express.Response, n
 };
 
 // User registration
-router.post('/register', async (req, res) => {
+router.post('/register', async (req: Request, res: Response) => {
   try {
     const { name, email, password, role } = req.body;
     
     // Check if user already exists
-    const existingUser = await User.findOne({ email }).exec();
+    const existingUser = await User.findOne({ email }).lean();
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
@@ -69,12 +69,12 @@ router.post('/register', async (req, res) => {
 });
 
 // User login
-router.post('/login', async (req, res) => {
+router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     
     // Check if user exists
-    const user = await User.findOne({ email }).exec();
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
@@ -113,10 +113,10 @@ router.post('/login', async (req, res) => {
 });
 
 // Get all users (protected by auth)
-router.get('/', async (_req, res) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     // Don't return password field
-    const users = await User.find().select('-password').lean().exec();
+    const users = await User.find().select('-password').lean();
     return res.json(users);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });

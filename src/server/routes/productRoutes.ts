@@ -1,5 +1,5 @@
 
-import express from 'express';
+import express, { Request, Response } from 'express';
 import multer from 'multer';
 import csv from 'csv-parser';
 import fs from 'fs';
@@ -10,7 +10,7 @@ const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
 // CSV Upload route for Products
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
@@ -43,9 +43,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 });
 
 // Get all products
-router.get('/', async (_req, res) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
-    const products = await Product.find().lean().exec();
+    const products = await Product.find().lean();
     return res.json(products);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
@@ -53,7 +53,7 @@ router.get('/', async (_req, res) => {
 });
 
 // Create new product
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const product = new Product(req.body);
     const savedProduct = await product.save();
@@ -64,11 +64,11 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Get products that need to be reordered (below reorder level)
-router.get('/reorder', async (_req, res) => {
+router.get('/reorder', async (_req: Request, res: Response) => {
   try {
     const productsToReorder = await Product.find({
       $expr: { $lt: ["$quantity", "$reorderLevel"] }
-    }).lean().exec();
+    }).lean();
     return res.json(productsToReorder);
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error });
