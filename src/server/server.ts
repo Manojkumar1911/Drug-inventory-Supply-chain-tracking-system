@@ -8,15 +8,15 @@ import initializeDatabase from './initDb';
 import { createModels } from './models';
 
 // Routes
-import authRoutes, { authenticateToken } from './routes/authRoutes';
-import productRoutes from './routes/productRoutes';
-import transferRoutes from './routes/transferRoutes';
+import authRoutes, { initAuthRoutes, authenticateToken } from './routes/authRoutes';
+import productRoutes, { initProductRoutes } from './routes/productRoutes';
+import transferRoutes, { initTransferRoutes } from './routes/transferRoutes';
 import alertRoutes, { initAlertRoutes } from './routes/alertRoutes';
 import locationRoutes, { initLocationRoutes } from './routes/locationRoutes';
-import supplierRoutes from './routes/supplierRoutes';
-import purchaseOrderRoutes from './routes/purchaseOrderRoutes';
-import settingsRoutes from './routes/settingsRoutes';
-import analyticsRoutes from './routes/analyticsRoutes';
+import supplierRoutes, { initSupplierRoutes } from './routes/supplierRoutes';
+import purchaseOrderRoutes, { initPurchaseOrderRoutes } from './routes/purchaseOrderRoutes';
+import settingsRoutes, { initSettingsRoutes } from './routes/settingsRoutes';
+import analyticsRoutes, { initAnalyticsRoutes } from './routes/analyticsRoutes';
 
 dotenv.config();
 
@@ -46,16 +46,24 @@ if (pool) {
 // Create models
 const models = pool ? createModels(pool) : null;
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/transfers', transferRoutes);
-app.use('/api/alerts', initAlertRoutes(pool));
-app.use('/api/locations', initLocationRoutes(pool));
-app.use('/api/suppliers', supplierRoutes);
-app.use('/api/purchase-orders', purchaseOrderRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/analytics', analyticsRoutes);
+// Initialize routes with pool
+const initRoutes = () => {
+  if (!pool) return;
+  
+  // API Routes
+  app.use('/api/auth', initAuthRoutes(pool));
+  app.use('/api/products', initProductRoutes(pool));
+  app.use('/api/transfers', initTransferRoutes(pool));
+  app.use('/api/alerts', initAlertRoutes(pool));
+  app.use('/api/locations', initLocationRoutes(pool));
+  app.use('/api/suppliers', initSupplierRoutes(pool));
+  app.use('/api/purchase-orders', initPurchaseOrderRoutes(pool));
+  app.use('/api/settings', initSettingsRoutes(pool));
+  app.use('/api/analytics', initAnalyticsRoutes(pool));
+};
+
+// Initialize routes
+initRoutes();
 
 // Database connection status endpoint
 app.get('/api/system/status', async (_req, res) => {

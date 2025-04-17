@@ -3,11 +3,18 @@ import express, { Request, Response } from 'express';
 import multer from 'multer';
 import csv from 'csv-parser';
 import fs from 'fs';
-import Product from '../models/Product';
+import { Pool } from 'pg';
 import { authenticateToken } from './authRoutes';
 
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
+let pool: Pool;
+
+// Initialize routes with pool
+export const initProductRoutes = (dbPool: Pool) => {
+  pool = dbPool;
+  return router;
+};
 
 // CSV Upload route for Products
 router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
@@ -26,12 +33,34 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         .on('error', reject);
     });
 
-    await Product.insertMany(results);
+    // Insert each product from CSV
+    let insertedCount = 0;
+    
+    for (const product of results) {
+      await pool.query(
+        `INSERT INTO products
+        (name, sku, category, quantity, unit, location, expiry_date, reorder_level, manufacturer, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())`,
+        [
+          product.name,
+          product.sku,
+          product.category,
+          parseInt(product.quantity) || 0,
+          product.unit,
+          product.location,
+          product.expiryDate ? new Date(product.expiryDate) : null,
+          parseInt(product.reorderLevel) || 0,
+          product.manufacturer
+        ]
+      );
+      insertedCount++;
+    }
+    
     fs.unlinkSync(req.file.path);
     
     res.status(200).json({ 
       message: 'CSV uploaded successfully', 
-      count: results.length 
+      count: insertedCount
     });
   } catch (error) {
     console.error('Error processing CSV:', error);
@@ -45,8 +74,8 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 // Get all products
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const products = await Product.find().lean().exec();
-    res.json(products);
+    const result = await pool.query('SELECT * FROM products');
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
@@ -55,9 +84,17 @@ router.get('/', async (_req: Request, res: Response) => {
 // Create new product
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const product = new Product(req.body);
-    const savedProduct = await product.save();
-    res.status(201).json(savedProduct);
+    const { name, sku, category, quantity, unit, location, expiryDate, reorderLevel, manufacturer } = req.body;
+    
+    const result = await pool.query(
+      `INSERT INTO products
+      (name, sku, category, quantity, unit, location, expiry_date, reorder_level, manufacturer, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+      RETURNING *`,
+      [name, sku, category, quantity, unit, location, expiryDate, reorderLevel, manufacturer]
+    );
+    
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ message: 'Error creating product', error });
   }
@@ -66,10 +103,8 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 // Get products that need to be reordered (below reorder level)
 router.get('/reorder', async (_req: Request, res: Response) => {
   try {
-    const productsToReorder = await Product.find({
-      $expr: { $lt: ["$quantity", "$reorderLevel"] }
-    }).lean().exec();
-    res.json(productsToReorder);
+    const result = await pool.query('SELECT * FROM products WHERE quantity < reorder_level');
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }

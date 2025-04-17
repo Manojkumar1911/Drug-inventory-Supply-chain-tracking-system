@@ -1,38 +1,55 @@
 
 import express, { Request, Response } from 'express';
-import Analytics from '../models/Analytics';
+import { Pool } from 'pg';
 import { authenticateToken } from './authRoutes';
 
 const router = express.Router();
+let pool: Pool;
+
+// Initialize routes with pool
+export const initAnalyticsRoutes = (dbPool: Pool) => {
+  pool = dbPool;
+  return router;
+};
 
 // Get analytics data
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, metricType, location, category } = req.query;
     
-    let query: any = {};
+    let query = 'SELECT * FROM analytics WHERE 1=1';
+    const values: any[] = [];
+    let paramIndex = 1;
     
     if (startDate && endDate) {
-      query.date = { 
-        $gte: new Date(startDate as string), 
-        $lte: new Date(endDate as string) 
-      };
+      query += ` AND date >= $${paramIndex} AND date <= $${paramIndex + 1}`;
+      values.push(new Date(startDate as string));
+      values.push(new Date(endDate as string));
+      paramIndex += 2;
     }
     
     if (metricType) {
-      query.metricType = metricType;
+      query += ` AND metric_type = $${paramIndex}`;
+      values.push(metricType);
+      paramIndex++;
     }
     
     if (location) {
-      query.location = location;
+      query += ` AND location = $${paramIndex}`;
+      values.push(location);
+      paramIndex++;
     }
     
     if (category) {
-      query.category = category;
+      query += ` AND category = $${paramIndex}`;
+      values.push(category);
+      paramIndex++;
     }
     
-    const analytics = await Analytics.find(query).sort({ date: 1 }).lean().exec();
-    res.json(analytics);
+    query += ' ORDER BY date ASC';
+    
+    const result = await pool.query(query, values);
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
@@ -44,34 +61,29 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
     const { date, metricType, value, location, category, notes } = req.body;
     
     // Check if analytics entry already exists for this date/metric/location/category
-    const existingMetric = await Analytics.findOne({
-      date: new Date(date),
-      metricType,
-      location: location || null,
-      category: category || null
-    }).lean().exec();
+    const existingResult = await pool.query(
+      'SELECT * FROM analytics WHERE date = $1 AND metric_type = $2 AND location = $3 AND category = $4',
+      [new Date(date), metricType, location || null, category || null]
+    );
     
-    if (existingMetric) {
+    if (existingResult.rows.length > 0) {
       // Update existing metric
-      const updatedMetric = await Analytics.findByIdAndUpdate(
-        existingMetric._id, 
-        { $set: { value, notes: notes || existingMetric.notes } }, 
-        { new: true }
-      ).lean().exec();
-      res.json(updatedMetric);
+      const updatedResult = await pool.query(
+        'UPDATE analytics SET value = $1, notes = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+        [value, notes || existingResult.rows[0].notes, existingResult.rows[0].id]
+      );
+      res.json(updatedResult.rows[0]);
     } else {
       // Create new metric
-      const metric = new Analytics({
-        date: new Date(date),
-        metricType,
-        value,
-        location,
-        category,
-        notes
-      });
+      const result = await pool.query(
+        `INSERT INTO analytics 
+        (date, metric_type, value, location, category, notes, created_at, updated_at) 
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) 
+        RETURNING *`,
+        [new Date(date), metricType, value, location, category, notes]
+      );
       
-      const savedMetric = await metric.save();
-      res.status(201).json(savedMetric);
+      res.status(201).json(result.rows[0]);
     }
   } catch (error) {
     res.status(500).json({ message: 'Error saving analytics', error });

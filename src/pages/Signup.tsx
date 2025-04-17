@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { FileBox, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import LandingNav from "@/components/layout/LandingNav";
+import axios from "axios";
 
 const Signup: React.FC = () => {
   const [name, setName] = useState("");
@@ -35,18 +36,28 @@ const Signup: React.FC = () => {
     }
     
     try {
-      // Simulate a successful signup
-      // In a real application, you would make an API call here
-      setTimeout(() => {
-        // Store user info in localStorage
-        localStorage.setItem('user', JSON.stringify({ email, name, isAuthenticated: true }));
+      const response = await axios.post('/api/auth/register', {
+        name,
+        email,
+        password
+      });
+      
+      if (response.data && response.data.token) {
+        // Store token and user info in localStorage
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
         toast.success("Account created successfully");
         navigate("/dashboard");
-        setIsLoading(false);
-      }, 1500);
+      } else {
+        toast.error("Invalid registration response");
+      }
     } catch (error) {
       console.error("Signup failed", error);
-      toast.error("Signup failed. Please try again.");
+      toast.error(
+        error.response?.data?.message || 
+        "Signup failed. Please try again."
+      );
+    } finally {
       setIsLoading(false);
     }
   };

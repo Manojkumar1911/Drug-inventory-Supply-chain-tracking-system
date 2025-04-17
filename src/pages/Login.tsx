@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { FileBox, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import LandingNav from "@/components/layout/LandingNav";
+import axios from "axios";
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -27,18 +28,24 @@ const Login: React.FC = () => {
     }
     
     try {
-      // Simulate a successful login
-      // In a real application, you would make an API call here
-      setTimeout(() => {
-        // Store user info in localStorage
-        localStorage.setItem('user', JSON.stringify({ email, isAuthenticated: true }));
+      const response = await axios.post('/api/auth/login', { email, password });
+      
+      if (response.data && response.data.token) {
+        // Store token and user info in localStorage
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
         toast.success("Logged in successfully");
         navigate("/dashboard");
-        setIsLoading(false);
-      }, 1500);
+      } else {
+        toast.error("Invalid login response");
+      }
     } catch (error) {
       console.error("Login failed", error);
-      toast.error("Login failed. Please check your credentials.");
+      toast.error(
+        error.response?.data?.message || 
+        "Login failed. Please check your credentials."
+      );
+    } finally {
       setIsLoading(false);
     }
   };
