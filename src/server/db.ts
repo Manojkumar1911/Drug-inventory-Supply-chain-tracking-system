@@ -1,103 +1,111 @@
 
 import { Pool } from 'pg';
+import { supabase } from '../integrations/supabase/client';
 import dotenv from 'dotenv';
-import { supabase } from '@/integrations/supabase/client';
+import { join } from 'path';
 
-dotenv.config();
+// Configure dotenv to read from root directory
+dotenv.config({ path: join(process.cwd(), '.env') });
 
-let pool: Pool | null = null;
+// Database connection details from environment variables
+const connectionString = process.env.DATABASE_URL;
+
+// Create a connection pool
+const pool = new Pool({
+  connectionString,
+  ssl: process.env.NODE_ENV === 'production' 
+    ? { rejectUnauthorized: false } 
+    : false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+});
+
+// Connection state
+let isConnected = false;
 let connectionAttempts = 0;
 const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 5000;
 
 /**
- * Creates a connection to the PostgreSQL database using Supabase credentials
+ * Initialize the database connection
+ * @returns {Promise<Pool>} The database connection pool
  */
-const connectDB = () => {
+export async function initDb(): Promise<Pool> {
+  if (isConnected) {
+    // If already connected, just return the pool
+    return pool;
+  }
+  
   try {
-    const connectionString = process.env.DATABASE_URL;
+    connectionAttempts++;
     
     if (!connectionString) {
-      console.error('\x1b[31m%s\x1b[0m', 'PostgreSQL connection string is missing in .env file');
-      return null;
+      throw new Error('DATABASE_URL environment variable is not set');
     }
     
-    // Parse connection details for logging
-    const connectionDetails = parseConnectionString(connectionString);
+    console.log('\x1b[33m%s\x1b[0m', 'Connecting to PostgreSQL database...');
     
-    console.log('\x1b[36m%s\x1b[0m', '🔌 Attempting to connect to Supabase PostgreSQL database...');
-    console.log('\x1b[33m%s\x1b[0m', 'Connection Details:');
-    console.log('Host:', connectionDetails.host || 'Unknown');
-    console.log('Database:', connectionDetails.database || 'Unknown');
-    console.log('Project ID:', 'labzxhoshhzfixlzccrw');
+    // Test the connection
+    const client = await pool.connect();
     
-    // Create connection pool with enhanced configuration for Supabase
-    pool = new Pool({
-      connectionString,
-      ssl: {
-        rejectUnauthorized: false, // Required for Supabase SSL connection
-      },
-      // Additional connection pool settings
-      max: 10, // maximum number of clients in the pool
-      idleTimeoutMillis: 30000, // how long a client is allowed to remain idle before being closed
-    });
-    
-    // Test connection with detailed logging
-    pool.connect((err, client, release) => {
-      if (err) {
-        console.error('\x1b[31m%s\x1b[0m', '✗ Supabase PostgreSQL connection error:', err);
-        handleConnectionFailure();
-        return;
-      }
+    try {
+      // Execute a simple query to verify the connection
+      await client.query('SELECT NOW()');
       
-      // Connection successful, run a test query
-      client.query('SELECT NOW()', (queryErr) => {
-        release(); // Always release the client back to the pool
-        
-        if (queryErr) {
-          console.error('\x1b[31m%s\x1b[0m', '✗ Supabase query execution error:', queryErr);
-          handleConnectionFailure();
-          return;
-        }
-        
-        console.log('\x1b[32m%s\x1b[0m', '✓ Supabase PostgreSQL connected successfully');
-        console.log('\x1b[33m%s\x1b[0m', 'Database is ready to use');
-        
-        // Check if we can connect through the supabase client
-        checkSupabaseClientConnection();
-        
-        connectionAttempts = 0;
-      });
-    });
+      isConnected = true;
+      console.log('\x1b[32m%s\x1b[0m', '✓ PostgreSQL connected successfully');
+      console.log('\x1b[33m%s\x1b[0m', 'Database is ready to use');
+      
+      // Check if we can connect through the supabase client
+      checkSupabaseClientConnection();
+      
+      connectionAttempts = 0;
+      return pool;
+      
+    } finally {
+      // Release the client back to the pool
+      client.release();
+    }
     
-    pool.on('error', (err) => {
-      console.error('\x1b[31m%s\x1b[0m', '✗ Supabase PostgreSQL pool error:', err);
-      handleConnectionFailure();
-    });
-    
-    return pool;
   } catch (error) {
-    console.error('\x1b[31m%s\x1b[0m', 'Supabase PostgreSQL connection error:', error);
-    return null;
-  }
-};
-
-/**
- * Handles connection failures with retry logic
- */
-function handleConnectionFailure() {
-  if (connectionAttempts < MAX_RETRIES) {
-    console.log('\x1b[33m%s\x1b[0m', `Attempting to reconnect (${connectionAttempts + 1}/${MAX_RETRIES})...`);
-    connectionAttempts++;
-    setTimeout(() => {
-      connectDB();
-    }, 5000);
-  } else {
-    console.error('\x1b[31m%s\x1b[0m', 'Max reconnection attempts reached. Please check your connection details.');
+    console.error('\x1b[31m%s\x1b[0m', '✗ Database connection failed:', 
+      error instanceof Error ? error.message : 'Unknown error');
+    
+    if (connectionAttempts < MAX_RETRIES) {
+      console.log('\x1b[33m%s\x1b[0m', `Retrying in ${RETRY_DELAY_MS / 1000} seconds... (Attempt ${connectionAttempts}/${MAX_RETRIES})`);
+      
+      // Wait and retry
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      return initDb();
+    } else {
+      console.error('\x1b[31m%s\x1b[0m', 'Max connection attempts reached. Check your database configuration.');
+      throw error;
+    }
   }
 }
 
 /**
- * Checks if we can connect through the Supabase client
+ * Check health of the database connection
+ * @returns {Promise<boolean>} True if the connection is healthy
+ */
+export async function checkDbHealth(): Promise<boolean> {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('SELECT 1');
+      return true;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Database health check failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if the Supabase client can connect to the database
  */
 async function checkSupabaseClientConnection() {
   try {
@@ -107,54 +115,12 @@ async function checkSupabaseClientConnection() {
     if (error) {
       console.error('\x1b[31m%s\x1b[0m', '✗ Supabase client connection test failed:', error.message);
     } else {
-      console.log('\x1b[32m%s\x1b[0m', '✓ Supabase client connection test successful');
+      console.log('\x1b[32m%s\x1b[0m', '✓ Supabase client connection successful');
     }
   } catch (error) {
-    console.error('\x1b[31m%s\x1b[0m', 'Supabase client connection test error:', error);
+    console.error('\x1b[31m%s\x1b[0m', '✗ Supabase client connection test failed:', 
+      error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
-/**
- * Parses a PostgreSQL connection string into its components
- */
-function parseConnectionString(connectionString: string) {
-  try {
-    const details: {
-      host?: string;
-      port?: string;
-      database?: string;
-      user?: string;
-    } = {};
-    
-    // Extract host
-    const hostMatch = connectionString.match(/@([^:]+):/);
-    if (hostMatch && hostMatch[1]) {
-      details.host = hostMatch[1];
-    }
-    
-    // Extract port
-    const portMatch = connectionString.match(/:(\d+)\//);
-    if (portMatch && portMatch[1]) {
-      details.port = portMatch[1];
-    }
-    
-    // Extract database
-    const dbMatch = connectionString.match(/\/([^?]+)($|\?)/);
-    if (dbMatch && dbMatch[1]) {
-      details.database = dbMatch[1];
-    }
-    
-    // Extract user
-    const userMatch = connectionString.match(/\/\/([^:]+):/);
-    if (userMatch && userMatch[1]) {
-      details.user = userMatch[1];
-    }
-    
-    return details;
-  } catch (error) {
-    console.error('Error parsing connection string:', error);
-    return {};
-  }
-}
-
-export default connectDB;
+export default pool;

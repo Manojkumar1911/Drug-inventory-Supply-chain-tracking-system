@@ -28,10 +28,8 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const location = await locationModel.create(req.body);
     res.status(201).json(location);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error creating location', error });
-    return;
   }
 });
 
