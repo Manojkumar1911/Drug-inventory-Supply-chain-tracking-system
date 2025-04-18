@@ -28,8 +28,10 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const transfer = await transferModel.create(req.body);
     res.status(201).json(transfer);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error creating transfer', error });
+    return;
   }
 });
 

@@ -51,6 +51,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       );
       
       res.json(result.rows[0]);
+      return;
     } else {
       // Create new setting
       const result = await pool.query(
@@ -68,9 +69,11 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       );
       
       res.status(201).json(result.rows[0]);
+      return;
     }
   } catch (error) {
     res.status(500).json({ message: 'Error saving setting', error });
+    return;
   }
 });
 

@@ -69,8 +69,10 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
     );
     
     res.status(201).json(result.rows[0]);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error creating supplier', error });
+    return;
   }
 });
 

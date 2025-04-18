@@ -18,8 +18,8 @@ const StatusIndicator = () => {
   useEffect(() => {
     const checkSupabaseConnection = async () => {
       try {
-        // Simple query to test connection
-        const { data, error } = await supabase.from('settings').select('*').limit(1);
+        // Use a safer method to check connection without using tables that may not exist yet
+        const { error } = await supabase.auth.getSession();
         
         if (error) {
           setSupabaseStatus({

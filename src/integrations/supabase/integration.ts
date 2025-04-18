@@ -106,8 +106,8 @@ export class SupabaseIntegration {
       const apiResponse = await fetch('/api/system/status');
       const apiStatus = await apiResponse.json();
       
-      // Check Supabase connection
-      const { data, error } = await supabase.from('settings').select('*').limit(1);
+      // Check Supabase connection using a safer method
+      const { data, error } = await supabase.auth.getSession();
       const supabaseConnected = !error;
       
       return {

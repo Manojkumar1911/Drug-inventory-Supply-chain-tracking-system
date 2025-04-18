@@ -62,7 +62,7 @@ const connectDB = () => {
         console.log('\x1b[32m%s\x1b[0m', '✓ Supabase PostgreSQL connected successfully');
         console.log('\x1b[33m%s\x1b[0m', 'Database is ready to use');
         
-        // Also check if we can connect through the supabase client
+        // Check if we can connect through the supabase client
         checkSupabaseClientConnection();
         
         connectionAttempts = 0;
@@ -102,10 +102,7 @@ function handleConnectionFailure() {
 async function checkSupabaseClientConnection() {
   try {
     // Try to make a simple query using the supabase client
-    const { data, error } = await supabase
-      .from('settings')
-      .select('*')
-      .limit(1);
+    const { error } = await supabase.auth.getSession();
     
     if (error) {
       console.error('\x1b[31m%s\x1b[0m', '✗ Supabase client connection test failed:', error.message);

@@ -40,7 +40,8 @@ export const authenticatedQuery = async <T>(
 // Connection status checker
 export const checkSupabaseConnection = async () => {
   try {
-    const { data, error } = await supabase.from('_test_connection').select('*').limit(1);
+    // Use a safer method to check connection without using tables that may not exist yet
+    const { error } = await supabase.auth.getSession();
     
     if (error) {
       console.error('Supabase connection test failed:', error.message);
