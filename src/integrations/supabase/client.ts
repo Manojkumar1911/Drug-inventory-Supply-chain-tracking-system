@@ -1,5 +1,7 @@
+
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
+import type { User } from '@supabase/supabase-js';
 
 // Get environment variables for Supabase connection
 const SUPABASE_URL = "https://labzxhoshhzfixlzccrw.supabase.co";
@@ -46,9 +48,9 @@ export const extractSession = (session: any): UserSession => {
 export const authenticatedQuery = async <T>(
   callback: () => Promise<T>
 ): Promise<T> => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data } = await supabase.auth.getSession();
   
-  if (!session || !session.session) {
+  if (!data.session) {
     throw new Error('Not authenticated');
   }
   

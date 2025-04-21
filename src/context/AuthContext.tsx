@@ -47,6 +47,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           };
           setUser(userData);
           setIsAuthenticated(true);
+          
+          // Update user profile in profiles table
+          setTimeout(async () => {
+            try {
+              await supabase.from('profiles').upsert({
+                id: newSession.user.id,
+                name: newSession.user.user_metadata.name,
+                role: newSession.user.user_metadata.role || 'user',
+                updated_at: new Date().toISOString(),
+              });
+            } catch (error) {
+              console.error('Error updating profile:', error);
+            }
+          }, 0);
         } else {
           setUser(null);
           setIsAuthenticated(false);
@@ -112,17 +126,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           data: {
             name,
             role: 'user'
-          }
+          },
+          emailRedirectTo: window.location.origin + '/login'
         }
       });
       
       if (error) throw error;
       
       if (data.user) {
-        toast.success('Account created successfully');
-        navigate('/dashboard');
-      } else {
-        toast.info('Please check your email to confirm your account');
+        // Create a profile entry
+        await supabase.from('profiles').insert({
+          id: data.user.id,
+          name: name,
+          role: 'user',
+        });
+        
+        toast.success('Account created successfully! Please check your email to confirm your account.');
+        
+        // Check if email confirmation is required
+        if (data.session) {
+          navigate('/dashboard');
+        }
       }
     } catch (error) {
       console.error('Signup error:', error);
