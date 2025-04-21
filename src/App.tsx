@@ -1,6 +1,7 @@
 
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { Toaster } from 'sonner';
 
 // Main Layout
 import MainLayout from './components/layout/MainLayout';
@@ -29,6 +30,7 @@ import GuestGuard from './guards/GuestGuard';
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" closeButton richColors />
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<Index />} />

@@ -126,8 +126,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           data: {
             name,
             role: 'user'
-          },
-          emailRedirectTo: window.location.origin + '/login'
+          }
         }
       });
       
@@ -135,7 +134,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       if (data.user) {
         // Create a profile entry
-        await supabase.from('profiles').insert({
+        await supabase.from('profiles').upsert({
           id: data.user.id,
           name: name,
           role: 'user',
