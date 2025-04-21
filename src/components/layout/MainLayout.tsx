@@ -1,13 +1,12 @@
 
 import React, { useState } from "react";
-import { useLocation, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import MobileSidebar from "./MobileSidebar";
 
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const location = useLocation();
   
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -15,11 +14,10 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <Sidebar activePath={location.pathname} />
+      <Sidebar />
       <MobileSidebar 
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)} 
-        activePath={location.pathname} 
       />
       
       <div className="flex flex-1 flex-col">

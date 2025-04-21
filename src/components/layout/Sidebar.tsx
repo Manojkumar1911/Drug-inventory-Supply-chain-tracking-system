@@ -1,7 +1,8 @@
 
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 import {
   AlertCircle,
   BarChart3,
@@ -59,15 +60,14 @@ const SidebarSection: React.FC<SidebarSectionProps> = ({ title, children }) => {
   );
 };
 
-interface SidebarProps {
-  activePath: string;
-}
-
-const Sidebar: React.FC<SidebarProps> = ({ activePath }) => {
+const Sidebar: React.FC = () => {
+  const location = useLocation();
+  const { user } = useAuth();
+  
   return (
     <aside className="hidden md:flex h-screen w-64 flex-col border-r bg-background">
       <div className="flex h-14 items-center border-b px-4">
-        <Link to="/" className="flex items-center gap-2 font-semibold">
+        <Link to="/dashboard" className="flex items-center gap-2 font-semibold">
           <FileBox className="h-6 w-6 text-pharma-600" />
           <span className="text-lg font-bold bg-gradient-to-r from-pharma-600 to-pharma-800 bg-clip-text text-transparent">
             PharmaLink
@@ -78,22 +78,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activePath }) => {
         <nav className="grid items-start px-2 text-sm">
           <SidebarSection title="Overview">
             <SidebarLink
-              to="/"
+              to="/dashboard"
               icon={Home}
               label="Dashboard"
-              active={activePath === "/"}
+              active={location.pathname === "/dashboard"}
             />
             <SidebarLink
               to="/analytics"
               icon={BarChart3}
               label="Analytics"
-              active={activePath === "/analytics"}
+              active={location.pathname === "/analytics"}
             />
             <SidebarLink
               to="/alerts"
               icon={AlertCircle}
               label="Alerts"
-              active={activePath === "/alerts"}
+              active={location.pathname === "/alerts"}
             />
           </SidebarSection>
           
@@ -102,19 +102,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activePath }) => {
               to="/products"
               icon={PackageOpen}
               label="Products"
-              active={activePath === "/products"}
+              active={location.pathname === "/products"}
             />
             <SidebarLink
               to="/transfers"
               icon={RefreshCcw}
               label="Transfers"
-              active={activePath === "/transfers"}
+              active={location.pathname === "/transfers"}
             />
             <SidebarLink
               to="/reorder"
               icon={PlusCircle}
               label="Reorder"
-              active={activePath === "/reorder"}
+              active={location.pathname === "/reorder"}
             />
           </SidebarSection>
           
@@ -123,19 +123,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activePath }) => {
               to="/locations"
               icon={Map}
               label="Locations"
-              active={activePath === "/locations"}
+              active={location.pathname === "/locations"}
             />
             <SidebarLink
               to="/suppliers"
               icon={Truck}
               label="Suppliers"
-              active={activePath === "/suppliers"}
+              active={location.pathname === "/suppliers"}
             />
             <SidebarLink
               to="/users"
               icon={Users}
               label="Users"
-              active={activePath === "/users"}
+              active={location.pathname === "/users"}
             />
           </SidebarSection>
           
@@ -144,7 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePath }) => {
               to="/settings"
               icon={Settings}
               label="Settings"
-              active={activePath === "/settings"}
+              active={location.pathname === "/settings"}
             />
           </SidebarSection>
         </nav>
@@ -153,11 +153,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activePath }) => {
       <div className="mt-auto border-t p-4">
         <div className="flex items-center gap-2 rounded-md bg-pharma-50 p-2 dark:bg-pharma-900/20">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-pharma-100 text-pharma-600">
-            <span className="text-xs font-semibold">JD</span>
+            <span className="text-xs font-semibold">
+              {user?.name?.substring(0, 2) || 'JD'}
+            </span>
           </div>
           <div>
-            <p className="text-xs font-medium">John Doe</p>
-            <p className="text-xs text-muted-foreground">Administrator</p>
+            <p className="text-xs font-medium">{user?.name || "John Doe"}</p>
+            <p className="text-xs text-muted-foreground">{user?.role || "Administrator"}</p>
           </div>
         </div>
       </div>

@@ -32,65 +32,70 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
-        console.log('Auth state changed:', event);
-        setSession(newSession);
-        
-        if (newSession?.user) {
-          const userData: AuthUser = {
-            id: newSession.user.id,
-            name: newSession.user.user_metadata.name || 'User',
-            email: newSession.user.email || '',
-            role: newSession.user.user_metadata.role || 'user'
-          };
-          setUser(userData);
-          setIsAuthenticated(true);
-          
-          // Update user profile in profiles table
-          setTimeout(async () => {
-            try {
-              await supabase.from('profiles').upsert({
-                id: newSession.user.id,
-                name: newSession.user.user_metadata.name,
-                role: newSession.user.user_metadata.role || 'user',
-                updated_at: new Date().toISOString(),
-              });
-            } catch (error) {
-              console.error('Error updating profile:', error);
-            }
-          }, 0);
-        } else {
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-        
-        setLoading(false);
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
+    const setupAuth = async () => {
+      setLoading(true);
       
-      if (currentSession?.user) {
+      // Set up auth state listener first
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        (event, newSession) => {
+          console.log('Auth state changed:', event);
+          setSession(newSession);
+          
+          if (newSession?.user) {
+            const userData: AuthUser = {
+              id: newSession.user.id,
+              name: newSession.user.user_metadata.name || 'User',
+              email: newSession.user.email || '',
+              role: newSession.user.user_metadata.role || 'user'
+            };
+            setUser(userData);
+            setIsAuthenticated(true);
+            
+            // Update user profile in profiles table
+            setTimeout(async () => {
+              try {
+                await supabase.from('profiles').upsert({
+                  id: newSession.user.id,
+                  name: newSession.user.user_metadata.name,
+                  role: newSession.user.user_metadata.role || 'user',
+                  updated_at: new Date().toISOString(),
+                });
+              } catch (error) {
+                console.error('Error updating profile:', error);
+              }
+            }, 0);
+          } else {
+            setUser(null);
+            setIsAuthenticated(false);
+          }
+          
+          setLoading(false);
+        }
+      );
+
+      // Then check for existing session
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session);
+      
+      if (data.session?.user) {
         const userData: AuthUser = {
-          id: currentSession.user.id,
-          name: currentSession.user.user_metadata.name || 'User',
-          email: currentSession.user.email || '',
-          role: currentSession.user.user_metadata.role || 'user'
+          id: data.session.user.id,
+          name: data.session.user.user_metadata.name || 'User',
+          email: data.session.user.email || '',
+          role: data.session.user.user_metadata.role || 'user'
         };
         setUser(userData);
         setIsAuthenticated(true);
       }
       
       setLoading(false);
-    });
 
-    return () => {
-      subscription.unsubscribe();
+      return () => {
+        subscription.unsubscribe();
+      };
     };
+
+    setupAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
@@ -175,18 +180,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const contextValue: AuthContextType = { 
+    user, 
+    session,
+    login, 
+    signup, 
+    logout, 
+    isAuthenticated,
+    loading
+  };
+
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        session,
-        login, 
-        signup, 
-        logout, 
-        isAuthenticated,
-        loading
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

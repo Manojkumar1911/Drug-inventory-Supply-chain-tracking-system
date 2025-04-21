@@ -1,24 +1,27 @@
 
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import React from "react";
 
-const GuestGuard = () => {
+const GuestGuard: React.FC = () => {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || "/dashboard";
 
+  // Show loading state while checking authentication
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Button disabled variant="ghost" size="lg">
-          <Loader2 className="w-6 h-6 mr-2 animate-spin" />
-          Loading...
-        </Button>
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
       </div>
     );
   }
 
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
+  if (isAuthenticated) {
+    return <Navigate to={from} replace />;
+  }
+
+  return <Outlet />;
 };
 
 export default GuestGuard;
