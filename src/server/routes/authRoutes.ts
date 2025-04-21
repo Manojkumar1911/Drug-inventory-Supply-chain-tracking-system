@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Pool } from 'pg';
 import UserModel from '../models/User';
+import { supabase } from '../../integrations/supabase/client';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret';
@@ -47,6 +48,22 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
     
+    // Supabase auth signup
+    const { error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          role: role || 'staff'
+        }
+      }
+    });
+
+    if (signUpError) {
+      throw signUpError;
+    }
+    
     const user = await userModel.create({
       name,
       email,
@@ -61,7 +78,7 @@ router.post('/register', async (req: Request, res: Response) => {
       { expiresIn: '1d' }
     );
     
-    res.status(201).json({
+    return res.status(201).json({
       token,
       user: {
         id: user.id,
@@ -73,7 +90,7 @@ router.post('/register', async (req: Request, res: Response) => {
     
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server Error', error });
+    return res.status(500).json({ message: 'Server Error', error });
   }
 });
 
@@ -82,16 +99,20 @@ router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     
-    // Check if user exists
-    const user = await userModel.findByEmail(email);
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+    // Supabase auth signin
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (authError) {
+      return res.status(400).json({ message: 'Invalid email or password', error: authError });
     }
     
-    // Check password
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+    // Check if user exists in our database
+    const user = await userModel.findByEmail(email);
+    if (!user) {
+      return res.status(400).json({ message: 'User not found in database' });
     }
     
     // Update last login time
@@ -104,7 +125,7 @@ router.post('/login', async (req: Request, res: Response) => {
       { expiresIn: '1d' }
     );
     
-    res.status(200).json({
+    return res.status(200).json({
       token,
       user: {
         id: user.id,
@@ -116,7 +137,7 @@ router.post('/login', async (req: Request, res: Response) => {
     
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Server Error', error });
+    return res.status(500).json({ message: 'Server Error', error });
   }
 });
 

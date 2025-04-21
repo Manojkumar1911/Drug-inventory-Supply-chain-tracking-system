@@ -2,13 +2,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+// Get environment variables for Supabase connection
 const SUPABASE_URL = "https://labzxhoshhzfixlzccrw.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhYnp4aG9zaGh6Zml4bHpjY3J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4NzA0MzksImV4cCI6MjA2MDQ0NjQzOX0.GbnzLqFktcNHynfhUIHa0kf-FQyrX2wCu7p2k1uJLI8";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhYnp4aG9zaGh6Zml4bHpjY3J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4NzA0MzksImV4cCI6MjA2MDQ0NjQzOX0.GbnzLqFktcNHynfhUIHa0kf-FQyrX2wCu7p2k1uJLI8";
 
 // Create the Supabase client with enhanced options for auth and storage
 export const supabase = createClient<Database>(
   SUPABASE_URL, 
-  SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_ANON_KEY,
   {
     auth: {
       persistSession: true,
@@ -28,7 +29,7 @@ export const supabase = createClient<Database>(
 export const authenticatedQuery = async <T>(
   callback: () => Promise<T>
 ): Promise<T> => {
-  const { data: session } = await supabase.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
   
   if (!session || !session.session) {
     throw new Error('Not authenticated');
@@ -48,6 +49,7 @@ export const checkSupabaseConnection = async () => {
       return { connected: false, error: error.message };
     }
     
+    console.log('Supabase connection success');
     return { connected: true };
   } catch (error) {
     console.error('Supabase connection check error:', error);

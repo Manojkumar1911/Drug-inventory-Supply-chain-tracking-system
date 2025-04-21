@@ -28,8 +28,10 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const alert = await alertModel.create(req.body);
     res.json(alert);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error creating alert', error });
+    return;
   }
 });
 

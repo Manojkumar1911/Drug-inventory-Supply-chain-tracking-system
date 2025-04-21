@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { FileBox, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import LandingNav from "@/components/layout/LandingNav";
-import axios from "axios";
+import { useAuth } from "@/context/AuthContext";
 
 const Signup: React.FC = () => {
   const [name, setName] = useState("");
@@ -16,6 +16,7 @@ const Signup: React.FC = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { signup } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,27 +37,11 @@ const Signup: React.FC = () => {
     }
     
     try {
-      const response = await axios.post('/api/auth/register', {
-        name,
-        email,
-        password
-      });
-      
-      if (response.data && response.data.token) {
-        // Store token and user info in localStorage
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        toast.success("Account created successfully");
-        navigate("/dashboard");
-      } else {
-        toast.error("Invalid registration response");
-      }
+      await signup(name, email, password);
+      navigate("/dashboard");
     } catch (error) {
       console.error("Signup failed", error);
-      toast.error(
-        error.response?.data?.message || 
-        "Signup failed. Please try again."
-      );
+      // Auth context already shows the toast error
     } finally {
       setIsLoading(false);
     }

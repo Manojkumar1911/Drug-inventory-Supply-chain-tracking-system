@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { FileBox, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import LandingNav from "@/components/layout/LandingNav";
-import axios from "axios";
+import { useAuth } from "@/context/AuthContext";
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,23 +29,11 @@ const Login: React.FC = () => {
     }
     
     try {
-      const response = await axios.post('/api/auth/login', { email, password });
-      
-      if (response.data && response.data.token) {
-        // Store token and user info in localStorage
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        toast.success("Logged in successfully");
-        navigate("/dashboard");
-      } else {
-        toast.error("Invalid login response");
-      }
+      await login(email, password);
+      navigate("/dashboard");
     } catch (error) {
       console.error("Login failed", error);
-      toast.error(
-        error.response?.data?.message || 
-        "Login failed. Please check your credentials."
-      );
+      // Auth context already shows the toast error
     } finally {
       setIsLoading(false);
     }

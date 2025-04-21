@@ -181,12 +181,25 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Imported Products table for CSV upload tracking
+CREATE TABLE IF NOT EXISTS imported_products (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  file_name VARCHAR(255) NOT NULL,
+  imported_by VARCHAR(255) NOT NULL,
+  status VARCHAR(50) DEFAULT 'processing',
+  row_count INTEGER DEFAULT 0,
+  error_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance
-CREATE INDEX idx_products_sku ON products(sku);
-CREATE INDEX idx_products_category ON products(category);
-CREATE INDEX idx_products_location ON products(location);
-CREATE INDEX idx_alerts_status ON alerts(status);
-CREATE INDEX idx_alerts_severity ON alerts(severity);
-CREATE INDEX idx_purchase_orders_status ON purchase_orders(status);
-CREATE INDEX idx_analytics_date ON analytics(date);
-CREATE INDEX idx_analytics_metric ON analytics(metric_type);
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+CREATE INDEX IF NOT EXISTS idx_products_location ON products(location);
+CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status);
+CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status);
+CREATE INDEX IF NOT EXISTS idx_analytics_date ON analytics(date);
+CREATE INDEX IF NOT EXISTS idx_analytics_metric ON analytics(metric_type);
+CREATE INDEX IF NOT EXISTS idx_imported_products_status ON imported_products(status);

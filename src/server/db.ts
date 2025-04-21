@@ -1,6 +1,5 @@
 
 import { Pool } from 'pg';
-import { supabase } from '../integrations/supabase/client';
 import dotenv from 'dotenv';
 import { join } from 'path';
 
@@ -57,9 +56,6 @@ export async function initDb(): Promise<Pool> {
       console.log('\x1b[32m%s\x1b[0m', '✓ PostgreSQL connected successfully');
       console.log('\x1b[33m%s\x1b[0m', 'Database is ready to use');
       
-      // Check if we can connect through the supabase client
-      checkSupabaseClientConnection();
-      
       connectionAttempts = 0;
       return pool;
       
@@ -104,23 +100,5 @@ export async function checkDbHealth(): Promise<boolean> {
   }
 }
 
-/**
- * Check if the Supabase client can connect to the database
- */
-async function checkSupabaseClientConnection() {
-  try {
-    // Try to make a simple query using the supabase client
-    const { error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('\x1b[31m%s\x1b[0m', '✗ Supabase client connection test failed:', error.message);
-    } else {
-      console.log('\x1b[32m%s\x1b[0m', '✓ Supabase client connection successful');
-    }
-  } catch (error) {
-    console.error('\x1b[31m%s\x1b[0m', '✗ Supabase client connection test failed:', 
-      error instanceof Error ? error.message : 'Unknown error');
-  }
-}
-
+// Export the pool
 export default pool;

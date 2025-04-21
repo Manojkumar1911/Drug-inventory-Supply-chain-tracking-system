@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { CheckCircle2, FileText, Upload, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CsvUploadDialogProps {
   open: boolean;
@@ -72,18 +73,28 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
         });
       }, 100);
       
-      const response = await fetch('http://localhost:5000/api/upload/products', {
+      // Get a session token to use for authentication
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+      
+      // Upload to our API endpoint
+      const response = await fetch('http://localhost:5000/api/products/upload', {
         method: 'POST',
         body: formData,
+        headers: token ? {
+          'Authorization': `Bearer ${token}`
+        } : {}
       });
       
       clearInterval(interval);
       
       if (response.ok) {
+        const result = await response.json();
         setUploadProgress(100);
+        
         setTimeout(() => {
           setUploadComplete(true);
-          toast.success("CSV file uploaded successfully");
+          toast.success(`CSV file uploaded successfully. ${result.count} products imported.`);
           
           // After 2 seconds, reset and close
           setTimeout(() => {
@@ -95,11 +106,12 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
           }, 2000);
         }, 500);
       } else {
-        throw new Error('Upload failed');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Upload failed');
       }
     } catch (error) {
       console.error('Error uploading file:', error);
-      toast.error("Failed to upload file");
+      toast.error(error instanceof Error ? error.message : "Failed to upload file");
       setUploading(false);
     }
   };
