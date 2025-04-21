@@ -1,155 +1,136 @@
-
 import express, { Request, Response } from 'express';
-import multer from 'multer';
-import csv from 'csv-parser';
-import fs from 'fs';
 import { Pool } from 'pg';
 import ProductModel from '../models/Product';
 import { authenticateToken } from './authRoutes';
-import { supabase } from '../../integrations/supabase/client';
+import multer from 'multer';
+import csv from 'csv-parser';
+import { Readable } from 'stream';
 
 const router = express.Router();
-const upload = multer({ dest: 'uploads/' });
 let productModel: ProductModel;
-let pool: Pool;
 
-// Initialize routes with pool
-export const initProductRoutes = (dbPool: Pool) => {
-  pool = dbPool;
+// Multer configuration for file uploads
+const storage = multer.memoryStorage();
+const multerUpload = multer({ storage: storage });
+
+// Initialize model with pool
+export const initProductRoutes = (pool: Pool) => {
   productModel = new ProductModel(pool);
   return router;
 };
 
-// CSV Upload route for Products
-router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
-  if (!req.file) {
-    return res.status(400).json({ message: 'No file uploaded' });
-  }
-
-  const results: any[] = [];
-
-  try {
-    // Create a unique import record in Supabase
-    const { data: importRecord, error: importError } = await supabase
-      .from('imported_products')
-      .insert({
-        file_name: req.file.originalname,
-        imported_by: 'system', // We'll update this with user ID once auth is fully implemented
-        status: 'processing'
-      })
-      .select()
-      .single();
-
-    if (importError) {
-      console.error('Error creating import record:', importError);
-      return res.status(500).json({ message: 'Error creating import record', error: importError });
-    }
-
-    // Parse the CSV file
-    await new Promise<void>((resolve, reject) => {
-      fs.createReadStream(req.file!.path)
-        .pipe(csv())
-        .on('data', (data) => results.push(data))
-        .on('end', () => resolve())
-        .on('error', reject);
-    });
-
-    // Insert each product from CSV
-    let insertedCount = 0;
-    let errorCount = 0;
-    
-    for (const product of results) {
-      try {
-        await pool.query(
-          `INSERT INTO products
-          (name, sku, category, quantity, unit, location, expiry_date, reorder_level, manufacturer, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())`,
-          [
-            product.name,
-            product.sku,
-            product.category,
-            parseInt(product.quantity) || 0,
-            product.unit,
-            product.location,
-            product.expiryDate ? new Date(product.expiryDate) : null,
-            parseInt(product.reorderLevel) || 0,
-            product.manufacturer
-          ]
-        );
-        insertedCount++;
-      } catch (error) {
-        console.error('Error inserting product:', error);
-        errorCount++;
-      }
-    }
-    
-    // Update the import record with the results
-    const { error: updateError } = await supabase
-      .from('imported_products')
-      .update({
-        status: errorCount > 0 ? 'completed_with_errors' : 'completed',
-        row_count: insertedCount,
-        error_count: errorCount
-      })
-      .eq('id', importRecord.id);
-
-    if (updateError) {
-      console.error('Error updating import record:', updateError);
-    }
-
-    // Clean up the uploaded file
-    fs.unlinkSync(req.file.path);
-    
-    return res.status(200).json({ 
-      message: 'CSV uploaded successfully', 
-      count: insertedCount,
-      errors: errorCount
-    });
-  } catch (error) {
-    console.error('Error processing CSV:', error);
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
-    }
-    return res.status(500).json({ message: 'Error processing CSV', error });
-  }
-});
-
 // Get all products
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const result = await pool.query('SELECT * FROM products');
-    res.json(result.rows);
+    const products = await productModel.find();
+    res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
 });
 
-// Create new product
+// Get product by ID
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const product = await productModel.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+});
+
+// Create product
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { name, sku, category, quantity, unit, location, expiryDate, reorderLevel, manufacturer } = req.body;
-    
-    const result = await pool.query(
-      `INSERT INTO products
-      (name, sku, category, quantity, unit, location, expiry_date, reorder_level, manufacturer, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-      RETURNING *`,
-      [name, sku, category, quantity, unit, location, expiryDate, reorderLevel, manufacturer]
-    );
-    
-    return res.status(201).json(result.rows[0]);
+    const product = await productModel.create(req.body);
+    res.json(product);
+    return;
   } catch (error) {
-    return res.status(500).json({ message: 'Error creating product', error });
+    res.status(500).json({ message: 'Error creating product', error });
+    return;
   }
 });
 
-// Get products that need to be reordered (below reorder level)
-router.get('/reorder', async (_req: Request, res: Response) => {
+// Update product
+router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const result = await pool.query('SELECT * FROM products WHERE quantity < reorder_level');
-    res.json(result.rows);
+    const { id } = req.params;
+    const product = await productModel.update(id, req.body);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    res.json(product);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Error updating product', error });
+  }
+});
+
+// Delete product
+router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await productModel.delete(id);
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting product', error });
+  }
+});
+
+// CSV upload
+router.post('/upload', authenticateToken, multerUpload.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    const fileBuffer = req.file.buffer.toString('utf8');
+    let productsAdded = 0;
+
+    // Convert buffer to stream
+    const readableStream = new Readable();
+    readableStream.push(fileBuffer);
+    readableStream.push(null); // Signal the end of the stream
+
+    readableStream
+      .pipe(csv())
+      .on('data', async (row: any) => {
+        // Map CSV fields to your Product model
+        const productData = {
+          name: row.name,
+          description: row.description,
+          price: parseFloat(row.price),
+          quantity: parseInt(row.quantity),
+          category: row.category,
+          supplier_id: row.supplier_id,
+          location_id: row.location_id,
+          reorder_point: parseInt(row.reorder_point),
+        };
+
+        try {
+          await productModel.create(productData);
+          productsAdded++;
+        } catch (error) {
+          console.error('Error inserting product:', error);
+          // Optionally, handle the error for individual rows
+        }
+      })
+      .on('end', () => {
+        res.status(200).json({ message: 'CSV import completed', productsAdded });
+        return;
+      })
+      .on('error', (error: any) => {
+        console.error('CSV parsing error:', error);
+        res.status(500).json({ message: 'Error processing CSV file', error });
+        return;
+      });
+  } catch (error) {
+    console.error('CSV import error:', error);
+    res.status(500).json({ message: 'Error processing CSV file', error });
+    return;
   }
 });
 

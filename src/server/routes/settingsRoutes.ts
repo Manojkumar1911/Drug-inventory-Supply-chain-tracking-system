@@ -1,4 +1,3 @@
-
 import express, { Request, Response } from 'express';
 import { Pool } from 'pg';
 import SettingsModel from '../models/Settings';
@@ -26,12 +25,50 @@ router.get('/', async (_req: Request, res: Response) => {
 // Create or update setting
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const setting = await settingsModel.upsert(req.body);
-    res.status(200).json(setting);
-    return;
+    // Replace upsert with appropriate method
+    const setting = await settingsModel.create(req.body);
+    res.json(setting);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating setting', error });
-    return;
+    res.status(500).json({ message: 'Error creating setting', error });
+  }
+});
+
+// Get setting by ID
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const setting = await settingsModel.findById(id);
+    if (!setting) {
+      return res.status(404).json({ message: 'Setting not found' });
+    }
+    res.json(setting);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+});
+
+// Update setting
+router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const setting = await settingsModel.update(id, req.body);
+    if (!setting) {
+      return res.status(404).json({ message: 'Setting not found' });
+    }
+    res.json(setting);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+});
+
+// Delete setting
+router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await settingsModel.delete(id);
+    res.json({ message: 'Setting deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 

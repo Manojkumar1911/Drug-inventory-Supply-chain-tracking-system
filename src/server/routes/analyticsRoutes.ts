@@ -13,34 +13,23 @@ export const initAnalyticsRoutes = (pool: Pool) => {
   return router;
 };
 
-// Get analytics with optional filters
-router.get('/', async (req: Request, res: Response) => {
+// Get all analytics
+router.get('/', async (_req: Request, res: Response) => {
   try {
-    const { startDate, endDate, metricType, location, category } = req.query;
-    
-    const filters: any = {};
-    if (startDate) filters.startDate = new Date(startDate as string);
-    if (endDate) filters.endDate = new Date(endDate as string);
-    if (metricType) filters.metricType = metricType as string;
-    if (location) filters.location = location as string;
-    if (category) filters.category = category as string;
-    
-    const data = await analyticsModel.find(filters);
-    res.json(data);
+    const analytics = await analyticsModel.find();
+    res.json(analytics);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
 });
 
-// Create analytics entry
+// Create analytics
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const analyticsEntry = await analyticsModel.create(req.body);
-    res.status(201).json(analyticsEntry);
-    return;
+    const analytics = await analyticsModel.create(req.body);
+    res.json(analytics);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating analytics entry', error });
-    return;
+    res.status(500).json({ message: 'Error creating analytics', error });
   }
 });
 

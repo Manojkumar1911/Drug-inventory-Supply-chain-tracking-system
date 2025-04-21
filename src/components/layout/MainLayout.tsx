@@ -1,15 +1,11 @@
 
 import React, { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import MobileSidebar from "./MobileSidebar";
 
-interface MainLayoutProps {
-  children: React.ReactNode;
-}
-
-const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   
@@ -28,7 +24,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       
       <div className="flex flex-1 flex-col">
         <Header toggleSidebar={toggleSidebar} />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

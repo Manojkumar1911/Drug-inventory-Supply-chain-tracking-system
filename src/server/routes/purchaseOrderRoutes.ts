@@ -1,4 +1,3 @@
-
 import express, { Request, Response } from 'express';
 import { Pool } from 'pg';
 import PurchaseOrderModel from '../models/PurchaseOrder';
@@ -26,12 +25,10 @@ router.get('/', async (_req: Request, res: Response) => {
 // Create purchase order
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const order = await purchaseOrderModel.create(req.body);
-    res.status(201).json(order);
-    return;
+    const purchaseOrder = await purchaseOrderModel.create(req.body);
+    res.json(purchaseOrder);
   } catch (error) {
     res.status(500).json({ message: 'Error creating purchase order', error });
-    return;
   }
 });
 

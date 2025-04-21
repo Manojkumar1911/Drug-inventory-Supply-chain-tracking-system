@@ -25,7 +25,8 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   const token = authHeader && authHeader.split(' ')[1];
   
   if (!token) {
-    return res.status(401).json({ message: 'Access denied. No token provided.' });
+    res.status(401).json({ message: 'Access denied. No token provided.' });
+    return;
   }
 
   try {
@@ -34,6 +35,7 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     next();
   } catch (error) {
     res.status(400).json({ message: 'Invalid token' });
+    return;
   }
 };
 
@@ -45,7 +47,8 @@ router.post('/register', async (req: Request, res: Response) => {
     // Check if user already exists
     const existingUser = await userModel.findByEmail(email);
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists with this email' });
+      res.status(400).json({ message: 'User already exists with this email' });
+      return;
     }
     
     // Supabase auth signup
@@ -78,7 +81,7 @@ router.post('/register', async (req: Request, res: Response) => {
       { expiresIn: '1d' }
     );
     
-    return res.status(201).json({
+    res.status(201).json({
       token,
       user: {
         id: user.id,
@@ -90,7 +93,7 @@ router.post('/register', async (req: Request, res: Response) => {
     
   } catch (error) {
     console.error('Registration error:', error);
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 
@@ -106,13 +109,15 @@ router.post('/login', async (req: Request, res: Response) => {
     });
 
     if (authError) {
-      return res.status(400).json({ message: 'Invalid email or password', error: authError });
+      res.status(400).json({ message: 'Invalid email or password', error: authError });
+      return;
     }
     
     // Check if user exists in our database
     const user = await userModel.findByEmail(email);
     if (!user) {
-      return res.status(400).json({ message: 'User not found in database' });
+      res.status(400).json({ message: 'User not found in database' });
+      return;
     }
     
     // Update last login time
@@ -125,7 +130,7 @@ router.post('/login', async (req: Request, res: Response) => {
       { expiresIn: '1d' }
     );
     
-    return res.status(200).json({
+    res.status(200).json({
       token,
       user: {
         id: user.id,
@@ -137,7 +142,7 @@ router.post('/login', async (req: Request, res: Response) => {
     
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 });
 

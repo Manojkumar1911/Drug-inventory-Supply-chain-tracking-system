@@ -1,5 +1,5 @@
 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 
 // Main Layout
@@ -28,40 +28,38 @@ import GuestGuard from './guards/GuestGuard';
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Index />} />
-          
-          {/* Guest routes (not accessible when logged in) */}
-          <Route element={<GuestGuard />}>
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
+    <AuthProvider>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<Index />} />
+        
+        {/* Guest routes (not accessible when logged in) */}
+        <Route element={<GuestGuard />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+        </Route>
+        
+        {/* Protected routes */}
+        <Route element={<AuthGuard />}>
+          <Route element={<MainLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="/transfers" element={<Transfers />} />
+            <Route path="/reorder" element={<Reorder />} />
+            <Route path="/suppliers" element={<Suppliers />} />
+            <Route path="/locations" element={<Locations />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
-          
-          {/* Protected routes */}
-          <Route element={<AuthGuard />}>
-            <Route element={<MainLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/alerts" element={<Alerts />} />
-              <Route path="/transfers" element={<Transfers />} />
-              <Route path="/reorder" element={<Reorder />} />
-              <Route path="/suppliers" element={<Suppliers />} />
-              <Route path="/locations" element={<Locations />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/users" element={<Users />} />
-              <Route path="/profile" element={<Profile />} />
-            </Route>
-          </Route>
-          
-          {/* 404 route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </AuthProvider>
-    </Router>
+        </Route>
+        
+        {/* 404 route */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AuthProvider>
   );
 }
 

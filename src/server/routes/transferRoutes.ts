@@ -1,4 +1,3 @@
-
 import express, { Request, Response } from 'express';
 import { Pool } from 'pg';
 import TransferModel from '../models/Transfer';
@@ -27,11 +26,9 @@ router.get('/', async (_req: Request, res: Response) => {
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const transfer = await transferModel.create(req.body);
-    res.status(201).json(transfer);
-    return;
+    res.json(transfer);
   } catch (error) {
     res.status(500).json({ message: 'Error creating transfer', error });
-    return;
   }
 });
 

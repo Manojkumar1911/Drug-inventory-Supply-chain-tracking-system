@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
@@ -24,6 +23,24 @@ export const supabase = createClient<Database>(
     },
   }
 );
+
+// User type definition
+export type UserSession = {
+  user: User | null;
+  access_token: string | null;
+  refresh_token: string | null;
+};
+
+// Extract and format session data
+export const extractSession = (session: any): UserSession => {
+  if (!session) return { user: null, access_token: null, refresh_token: null };
+  
+  return {
+    user: session.user || null,
+    access_token: session.access_token || null,
+    refresh_token: session.refresh_token || null,
+  };
+};
 
 // Create a helper function for authenticated queries
 export const authenticatedQuery = async <T>(

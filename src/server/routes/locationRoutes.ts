@@ -1,4 +1,3 @@
-
 import express, { Request, Response } from 'express';
 import { Pool } from 'pg';
 import LocationModel from '../models/Location';
@@ -27,11 +26,9 @@ router.get('/', async (_req: Request, res: Response) => {
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const location = await locationModel.create(req.body);
-    res.status(201).json(location);
-    return;
+    res.json(location);
   } catch (error) {
     res.status(500).json({ message: 'Error creating location', error });
-    return;
   }
 });
 

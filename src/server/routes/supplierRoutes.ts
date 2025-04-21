@@ -1,4 +1,3 @@
-
 import express, { Request, Response } from 'express';
 import { Pool } from 'pg';
 import SupplierModel from '../models/Supplier';
@@ -23,15 +22,52 @@ router.get('/', async (_req: Request, res: Response) => {
   }
 });
 
+// Get supplier by ID
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const supplier = await supplierModel.findById(req.params.id);
+    if (!supplier) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+    res.json(supplier);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+});
+
 // Create supplier
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const supplier = await supplierModel.create(req.body);
-    res.status(201).json(supplier);
-    return;
+    res.json(supplier);
   } catch (error) {
     res.status(500).json({ message: 'Error creating supplier', error });
-    return;
+  }
+});
+
+// Update supplier
+router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const supplier = await supplierModel.update(req.params.id, req.body);
+    if (!supplier) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+    res.json(supplier);
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating supplier', error });
+  }
+});
+
+// Delete supplier
+router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const supplier = await supplierModel.delete(req.params.id);
+    if (!supplier) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+    res.json({ message: 'Supplier deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting supplier', error });
   }
 });
 
