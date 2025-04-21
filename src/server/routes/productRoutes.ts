@@ -1,3 +1,4 @@
+
 import express, { Request, Response } from 'express';
 import { Pool } from 'pg';
 import ProductModel from '../models/Product';
@@ -33,7 +34,7 @@ router.get('/', async (_req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const product = await productModel.findById(id);
+    const product = await productModel.findById(parseInt(id));
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -48,10 +49,8 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const product = await productModel.create(req.body);
     res.json(product);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error creating product', error });
-    return;
   }
 });
 
@@ -59,7 +58,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const product = await productModel.update(id, req.body);
+    const product = await productModel.update(parseInt(id), req.body);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -73,7 +72,8 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await productModel.delete(id);
+    // Assuming the model has a delete method
+    await productModel.remove(parseInt(id));
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ message: 'Error deleting product', error });
@@ -108,6 +108,11 @@ router.post('/upload', authenticateToken, multerUpload.single('file'), async (re
           supplier_id: row.supplier_id,
           location_id: row.location_id,
           reorder_point: parseInt(row.reorder_point),
+          // Add required fields that might be missing from CSV
+          sku: row.sku || `SKU-${Date.now()}`,
+          unit: row.unit || 'unit',
+          location: row.location || 'Main',
+          reorder_level: parseInt(row.reorder_level) || 10
         };
 
         try {
@@ -120,17 +125,14 @@ router.post('/upload', authenticateToken, multerUpload.single('file'), async (re
       })
       .on('end', () => {
         res.status(200).json({ message: 'CSV import completed', productsAdded });
-        return;
       })
       .on('error', (error: any) => {
         console.error('CSV parsing error:', error);
         res.status(500).json({ message: 'Error processing CSV file', error });
-        return;
       });
   } catch (error) {
     console.error('CSV import error:', error);
     res.status(500).json({ message: 'Error processing CSV file', error });
-    return;
   }
 });
 

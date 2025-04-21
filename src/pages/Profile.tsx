@@ -1,6 +1,5 @@
 
 import { useState } from "react";
-import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -126,7 +125,7 @@ const Profile = () => {
   };
 
   return (
-    <MainLayout>
+    <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">My Profile</h1>
       </div>
@@ -421,7 +420,7 @@ const Profile = () => {
           </Tabs>
         </div>
       </div>
-    </MainLayout>
+    </div>
   );
 };
 

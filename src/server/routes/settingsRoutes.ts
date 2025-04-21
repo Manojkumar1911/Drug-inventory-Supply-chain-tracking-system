@@ -1,3 +1,4 @@
+
 import express, { Request, Response } from 'express';
 import { Pool } from 'pg';
 import SettingsModel from '../models/Settings';
@@ -13,10 +14,24 @@ export const initSettingsRoutes = (pool: Pool) => {
 };
 
 // Get all settings
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', authenticateToken, async (_req: Request, res: Response) => {
   try {
-    const settings = await settingsModel.find();
+    const settings = await settingsModel.getSettings();
     res.json(settings);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+});
+
+// Get setting by key
+router.get('/:key', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { key } = req.params;
+    const setting = await settingsModel.getSetting(key);
+    if (!setting) {
+      return res.status(404).json({ message: 'Setting not found' });
+    }
+    res.json(setting);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
@@ -25,50 +40,38 @@ router.get('/', async (_req: Request, res: Response) => {
 // Create or update setting
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    // Replace upsert with appropriate method
-    const setting = await settingsModel.create(req.body);
-    res.json(setting);
-  } catch (error) {
-    res.status(500).json({ message: 'Error creating setting', error });
-  }
-});
-
-// Get setting by ID
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const setting = await settingsModel.findById(id);
-    if (!setting) {
-      return res.status(404).json({ message: 'Setting not found' });
+    const { key, value, groupName, description } = req.body;
+    const userId = req.body.user?.id;
+    
+    if (!key || !value) {
+      return res.status(400).json({ message: 'Key and value are required' });
     }
+    
+    const setting = await settingsModel.upsertSetting({
+      key,
+      value,
+      group_name: groupName,
+      description,
+      updated_by: userId
+    });
+    
     res.json(setting);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-// Update setting
-router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const setting = await settingsModel.update(id, req.body);
-    if (!setting) {
-      return res.status(404).json({ message: 'Setting not found' });
-    }
-    res.json(setting);
-  } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Error updating setting', error });
   }
 });
 
 // Delete setting
-router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+router.delete('/:key', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    await settingsModel.delete(id);
-    res.json({ message: 'Setting deleted' });
+    const { key } = req.params;
+    const result = await settingsModel.deleteSetting(key);
+    if (!result) {
+      return res.status(404).json({ message: 'Setting not found' });
+    }
+    res.json({ message: 'Setting deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Error deleting setting', error });
   }
 });
 

@@ -1,3 +1,4 @@
+
 import express, { Request, Response } from 'express';
 import { Pool } from 'pg';
 import SupplierModel from '../models/Supplier';
@@ -25,7 +26,7 @@ router.get('/', async (_req: Request, res: Response) => {
 // Get supplier by ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const supplier = await supplierModel.findById(req.params.id);
+    const supplier = await supplierModel.findById(parseInt(req.params.id));
     if (!supplier) {
       return res.status(404).json({ message: 'Supplier not found' });
     }
@@ -48,7 +49,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 // Update supplier
 router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const supplier = await supplierModel.update(req.params.id, req.body);
+    const supplier = await supplierModel.update(parseInt(req.params.id), req.body);
     if (!supplier) {
       return res.status(404).json({ message: 'Supplier not found' });
     }
@@ -61,7 +62,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 // Delete supplier
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const supplier = await supplierModel.delete(req.params.id);
+    const supplier = await supplierModel.remove(parseInt(req.params.id));
     if (!supplier) {
       return res.status(404).json({ message: 'Supplier not found' });
     }
