@@ -41,7 +41,7 @@ function App() {
           <Route path="/signup" element={<Signup />} />
         </Route>
         
-        {/* Protected routes */}
+        {/* Protected routes with main layout */}
         <Route element={<AuthGuard />}>
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
