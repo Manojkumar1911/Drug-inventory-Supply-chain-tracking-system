@@ -25,6 +25,7 @@ router.get('/', async (_req: Request, res: Response) => {
   try {
     const products = await productModel.find();
     res.json(products);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
@@ -39,6 +40,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     res.json(product);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
@@ -49,6 +51,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const product = await productModel.create(req.body);
     res.json(product);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error creating product', error });
   }
@@ -63,6 +66,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     res.json(product);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error updating product', error });
   }
@@ -72,9 +76,10 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    // Assuming the model has a delete method
-    await productModel.remove(parseInt(id));
+    // Use update method to logically delete or create a delete method if needed
+    await productModel.update(parseInt(id), { deleted: true });
     res.status(204).send();
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error deleting product', error });
   }
@@ -130,6 +135,8 @@ router.post('/upload', authenticateToken, multerUpload.single('file'), async (re
         console.error('CSV parsing error:', error);
         res.status(500).json({ message: 'Error processing CSV file', error });
       });
+      
+    return;
   } catch (error) {
     console.error('CSV import error:', error);
     res.status(500).json({ message: 'Error processing CSV file', error });

@@ -14,15 +14,19 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <Sidebar />
+      <div className="fixed z-40 h-full md:static">
+        <Sidebar />
+      </div>
       <MobileSidebar 
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)} 
       />
       
       <div className="flex flex-1 flex-col">
-        <Header toggleSidebar={toggleSidebar} />
-        <main className="flex-1 p-4 md:p-6">
+        <div className="sticky top-0 z-30">
+          <Header toggleSidebar={toggleSidebar} />
+        </div>
+        <main className="flex-1 p-4 md:p-6 md:ml-0">
           <Outlet />
         </main>
       </div>

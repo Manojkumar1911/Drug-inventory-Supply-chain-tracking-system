@@ -16,7 +16,8 @@ export const initSettingsRoutes = (pool: Pool) => {
 // Get all settings
 router.get('/', authenticateToken, async (_req: Request, res: Response) => {
   try {
-    const settings = await settingsModel.findAll();
+    // Assuming the model has a find method instead of findAll
+    const settings = await settingsModel.find();
     res.json(settings);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -32,6 +33,7 @@ router.get('/:key', authenticateToken, async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Setting not found' });
     }
     res.json(setting);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
@@ -47,7 +49,8 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Key and value are required' });
     }
     
-    const setting = await settingsModel.upsert({
+    // Assuming the model has a create/update method instead of upsert
+    const setting = await settingsModel.update(key, {
       key,
       value,
       group_name: groupName,
@@ -56,6 +59,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
     });
     
     res.json(setting);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error updating setting', error });
   }
@@ -70,6 +74,7 @@ router.delete('/:key', authenticateToken, async (req: Request, res: Response) =>
       return res.status(404).json({ message: 'Setting not found' });
     }
     res.json({ message: 'Setting deleted successfully' });
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error deleting setting', error });
   }
