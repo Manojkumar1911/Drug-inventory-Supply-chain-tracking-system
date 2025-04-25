@@ -1,6 +1,5 @@
 
 import React from "react";
-import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Clock, RefreshCcw } from "lucide-react";
@@ -103,62 +102,60 @@ const getCategoryIcon = (category: string) => {
 
 const Alerts = () => {
   return (
-    <MainLayout>
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight">Alerts</h1>
-          <p className="text-muted-foreground">
-            Manage and respond to system alerts and notifications
-          </p>
-        </div>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight">Alerts</h1>
+        <p className="text-muted-foreground">
+          Manage and respond to system alerts and notifications
+        </p>
+      </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle>Active Alerts</CardTitle>
-              <Badge className="bg-red-500 hover:bg-red-600">{alertsData.length} Active</Badge>
-            </div>
-            <CardDescription>
-              Alerts requiring attention across all systems
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {alertsData.map((alert) => (
-                <div key={alert.id} className="rounded-lg border p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "rounded-full p-1",
-                        getSeverityColor(alert.severity).split(' ')[0]
-                      )}>
-                        {getCategoryIcon(alert.category)}
-                      </div>
-                      <span className="font-medium">{alert.title}</span>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle>Active Alerts</CardTitle>
+            <Badge className="bg-red-500 hover:bg-red-600">{alertsData.length} Active</Badge>
+          </div>
+          <CardDescription>
+            Alerts requiring attention across all systems
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {alertsData.map((alert) => (
+              <div key={alert.id} className="rounded-lg border p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "rounded-full p-1",
+                      getSeverityColor(alert.severity).split(' ')[0]
+                    )}>
+                      {getCategoryIcon(alert.category)}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={cn(getStatusColor(alert.status))}>
-                        {alert.status}
-                      </Badge>
-                      <Badge className={cn(getSeverityColor(alert.severity))}>
-                        {alert.severity.charAt(0).toUpperCase() + alert.severity.slice(1)}
-                      </Badge>
-                    </div>
+                    <span className="font-medium">{alert.title}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-2">{alert.description}</p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <div>ID: {alert.id}</div>
-                    <div>Location: {alert.location}</div>
-                    <div>Category: {alert.category}</div>
-                    <div>{alert.timestamp}</div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={cn(getStatusColor(alert.status))}>
+                      {alert.status}
+                    </Badge>
+                    <Badge className={cn(getSeverityColor(alert.severity))}>
+                      {alert.severity.charAt(0).toUpperCase() + alert.severity.slice(1)}
+                    </Badge>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </MainLayout>
+                <p className="text-sm text-muted-foreground mb-2">{alert.description}</p>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div>ID: {alert.id}</div>
+                  <div>Location: {alert.location}</div>
+                  <div>Category: {alert.category}</div>
+                  <div>{alert.timestamp}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

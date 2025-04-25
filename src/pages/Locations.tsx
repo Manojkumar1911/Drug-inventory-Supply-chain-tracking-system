@@ -1,6 +1,5 @@
 
 import { useState } from "react";
-import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,7 +97,7 @@ const Locations = () => {
   );
 
   return (
-    <MainLayout>
+    <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Locations</h1>
         <Button className="flex items-center gap-2">
@@ -243,7 +242,7 @@ const Locations = () => {
           </Table>
         </CardContent>
       </Card>
-    </MainLayout>
+    </div>
   );
 };
 

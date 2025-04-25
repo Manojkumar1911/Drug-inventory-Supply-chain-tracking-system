@@ -1,370 +1,293 @@
 
-import { useState } from "react";
-import MainLayout from "@/components/layout/MainLayout";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Save, Bell, Lock, User, Building, Globe, Mail } from "lucide-react";
 
 const Settings = () => {
-  const [accountForm, setAccountForm] = useState({
-    name: "John Doe",
-    email: "john.doe@pharmalink.com",
-    language: "en",
-    timeZone: "America/New_York",
-  });
-
-  const [notifications, setNotifications] = useState({
-    emailAlerts: true,
-    stockAlerts: true,
-    securityAlerts: true,
-    marketingEmails: false,
-  });
-
-  const [systemSettings, setSystemSettings] = useState({
-    companyName: "PharmaLink Inc.",
-    address: "123 Main St, Boston, MA 02108",
-    phone: "(617) 555-1234",
-    website: "www.pharmalink.com",
-    taxId: "12-3456789",
-  });
-
-  const handleAccountSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.success("Account settings saved successfully");
+  // General Settings
+  const [companyName, setCompanyName] = useState("PharmaLink LLC");
+  const [timezone, setTimezone] = useState("America/New_York");
+  const [dateFormat, setDateFormat] = useState("MM/DD/YYYY");
+  const [language, setLanguage] = useState("en-US");
+  
+  // Notifications Settings
+  const [emailAlerts, setEmailAlerts] = useState(true);
+  const [smsAlerts, setSmsAlerts] = useState(false);
+  const [lowStockAlerts, setLowStockAlerts] = useState(true);
+  const [expiryAlerts, setExpiryAlerts] = useState(true);
+  const [systemNotifications, setSystemNotifications] = useState(true);
+  
+  // Inventory Settings
+  const [lowStockThreshold, setLowStockThreshold] = useState(20);
+  const [expiryWarningDays, setExpiryWarningDays] = useState(90);
+  const [autoReorder, setAutoReorder] = useState(false);
+  
+  // Save settings
+  const saveGeneralSettings = () => {
+    toast.success("General settings saved successfully");
   };
-
-  const handleNotificationToggle = (setting: string) => {
-    setNotifications(prev => ({
-      ...prev,
-      [setting]: !prev[setting as keyof typeof prev]
-    }));
-    toast.success(`${setting.charAt(0).toUpperCase() + setting.slice(1)} preferences updated`);
+  
+  const saveNotificationSettings = () => {
+    toast.success("Notification settings saved successfully");
   };
-
-  const handleSystemSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.success("System settings saved successfully");
+  
+  const saveInventorySettings = () => {
+    toast.success("Inventory settings saved successfully");
   };
-
+  
   return (
-    <MainLayout>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Settings</h1>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground">
+          Manage your application preferences and configurations
+        </p>
       </div>
-
-      <Tabs defaultValue="account" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="account" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Account
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="system" className="flex items-center gap-2">
-            <Building className="h-4 w-4" />
-            System
-          </TabsTrigger>
+      
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="inventory">Inventory</TabsTrigger>
         </TabsList>
-
-        {/* Account Settings */}
-        <TabsContent value="account" className="space-y-4">
+        
+        <TabsContent value="general">
           <Card>
             <CardHeader>
-              <CardTitle>Account Information</CardTitle>
+              <CardTitle>General Settings</CardTitle>
               <CardDescription>
-                Update your account details and preferences.
+                Configure basic system settings and preferences
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAccountSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input 
-                      id="name" 
-                      value={accountForm.name} 
-                      onChange={e => setAccountForm({...accountForm, name: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input 
-                      id="email" 
-                      type="email" 
-                      value={accountForm.email} 
-                      onChange={e => setAccountForm({...accountForm, email: e.target.value})}
-                    />
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="language">Language</Label>
-                    <Select 
-                      value={accountForm.language} 
-                      onValueChange={value => setAccountForm({...accountForm, language: value})}
-                    >
-                      <SelectTrigger id="language">
-                        <SelectValue placeholder="Select language" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="en">English</SelectItem>
-                        <SelectItem value="es">Spanish</SelectItem>
-                        <SelectItem value="fr">French</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="timezone">Time Zone</Label>
-                    <Select 
-                      value={accountForm.timeZone} 
-                      onValueChange={value => setAccountForm({...accountForm, timeZone: value})}
-                    >
-                      <SelectTrigger id="timezone">
-                        <SelectValue placeholder="Select time zone" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
-                        <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
-                        <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
-                        <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" />
-                </div>
-                
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
-                    <Input id="new-password" type="password" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <Input id="confirm-password" type="password" />
-                  </div>
-                </div>
-                
-                <div className="flex justify-end">
-                  <Button type="submit" className="flex items-center gap-2">
-                    <Save className="h-4 w-4" />
-                    Save Changes
-                  </Button>
-                </div>
-              </form>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="company-name">Company Name</Label>
+                <Input 
+                  id="company-name"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone</Label>
+                <Select value={timezone} onValueChange={setTimezone}>
+                  <SelectTrigger id="timezone">
+                    <SelectValue placeholder="Select timezone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
+                    <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
+                    <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
+                    <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="date-format">Date Format</Label>
+                <Select value={dateFormat} onValueChange={setDateFormat}>
+                  <SelectTrigger id="date-format">
+                    <SelectValue placeholder="Select date format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                    <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                    <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="language">Language</Label>
+                <Select value={language} onValueChange={setLanguage}>
+                  <SelectTrigger id="language">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en-US">English (US)</SelectItem>
+                    <SelectItem value="en-GB">English (UK)</SelectItem>
+                    <SelectItem value="es-ES">Spanish</SelectItem>
+                    <SelectItem value="fr-FR">French</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
+            <CardFooter>
+              <Button onClick={saveGeneralSettings}>Save Changes</Button>
+            </CardFooter>
           </Card>
         </TabsContent>
-
-        {/* Notification Settings */}
-        <TabsContent value="notifications" className="space-y-4">
+        
+        <TabsContent value="notifications">
           <Card>
             <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
+              <CardTitle>Notification Settings</CardTitle>
               <CardDescription>
-                Configure how you want to be notified about events.
+                Configure how and when you receive notifications
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">Email Notifications</h3>
+                <h3 className="text-lg font-medium">Notification Methods</h3>
+                <Separator />
+                
                 <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Email Alerts</Label>
+                  <div>
+                    <Label htmlFor="email-alerts">Email Alerts</Label>
                     <p className="text-sm text-muted-foreground">
-                      Receive email notifications for critical inventory events.
+                      Receive notifications via email
                     </p>
                   </div>
                   <Switch 
-                    checked={notifications.emailAlerts}
-                    onCheckedChange={() => handleNotificationToggle("emailAlerts")}
+                    id="email-alerts" 
+                    checked={emailAlerts} 
+                    onCheckedChange={setEmailAlerts} 
                   />
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Stock Level Alerts</Label>
+                  <div>
+                    <Label htmlFor="sms-alerts">SMS Alerts</Label>
                     <p className="text-sm text-muted-foreground">
-                      Get notified when stock levels fall below thresholds.
+                      Receive notifications via text message
                     </p>
                   </div>
                   <Switch 
-                    checked={notifications.stockAlerts} 
-                    onCheckedChange={() => handleNotificationToggle("stockAlerts")}
+                    id="sms-alerts" 
+                    checked={smsAlerts} 
+                    onCheckedChange={setSmsAlerts} 
+                  />
+                </div>
+                
+                <h3 className="text-lg font-medium mt-6">Alert Categories</h3>
+                <Separator />
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="low-stock-alerts">Low Stock Alerts</Label>
+                    <p className="text-sm text-muted-foreground">
+                      When inventory falls below threshold
+                    </p>
+                  </div>
+                  <Switch 
+                    id="low-stock-alerts" 
+                    checked={lowStockAlerts} 
+                    onCheckedChange={setLowStockAlerts} 
                   />
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Security Alerts</Label>
+                  <div>
+                    <Label htmlFor="expiry-alerts">Expiry Alerts</Label>
                     <p className="text-sm text-muted-foreground">
-                      Receive notifications about login attempts and security events.
+                      When products are approaching expiration
                     </p>
                   </div>
                   <Switch 
-                    checked={notifications.securityAlerts} 
-                    onCheckedChange={() => handleNotificationToggle("securityAlerts")}
+                    id="expiry-alerts" 
+                    checked={expiryAlerts} 
+                    onCheckedChange={setExpiryAlerts} 
                   />
                 </div>
-              </div>
-              
-              <Separator />
-              
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Marketing Communications</h3>
+                
                 <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Marketing Emails</Label>
+                  <div>
+                    <Label htmlFor="system-notifications">System Notifications</Label>
                     <p className="text-sm text-muted-foreground">
-                      Receive updates about PharmaLink features and promotions.
+                      General system updates and announcements
                     </p>
                   </div>
                   <Switch 
-                    checked={notifications.marketingEmails} 
-                    onCheckedChange={() => handleNotificationToggle("marketingEmails")}
+                    id="system-notifications" 
+                    checked={systemNotifications} 
+                    onCheckedChange={setSystemNotifications} 
                   />
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button variant="outline">Reset to Defaults</Button>
-              <Button>Save Preferences</Button>
+            <CardFooter>
+              <Button onClick={saveNotificationSettings}>Save Changes</Button>
             </CardFooter>
           </Card>
         </TabsContent>
-
-        {/* System Settings */}
-        <TabsContent value="system" className="space-y-4">
+        
+        <TabsContent value="inventory">
           <Card>
             <CardHeader>
-              <CardTitle>System Settings</CardTitle>
+              <CardTitle>Inventory Settings</CardTitle>
               <CardDescription>
-                Manage your organization's settings and configuration.
+                Configure inventory management thresholds and behaviors
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSystemSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="company-name">Company Name</Label>
-                  <Input 
-                    id="company-name" 
-                    value={systemSettings.companyName} 
-                    onChange={e => setSystemSettings({...systemSettings, companyName: e.target.value})}
+            <CardContent className="space-y-6">
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label htmlFor="low-stock-threshold">Low Stock Threshold (%)</Label>
+                    <span className="text-sm">{lowStockThreshold}%</span>
+                  </div>
+                  <Slider
+                    id="low-stock-threshold"
+                    value={[lowStockThreshold]}
+                    min={5}
+                    max={50}
+                    step={5}
+                    onValueChange={(value) => setLowStockThreshold(value[0])}
+                  />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Alert when stock falls below this percentage of ideal level
+                  </p>
+                </div>
+                
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label htmlFor="expiry-warning">Expiry Warning Days</Label>
+                    <span className="text-sm">{expiryWarningDays} days</span>
+                  </div>
+                  <Slider
+                    id="expiry-warning"
+                    value={[expiryWarningDays]}
+                    min={30}
+                    max={180}
+                    step={15}
+                    onValueChange={(value) => setExpiryWarningDays(value[0])}
+                  />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Alert when products are within this many days of expiry date
+                  </p>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="auto-reorder">Auto Reorder</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Automatically generate purchase orders when stock is low
+                    </p>
+                  </div>
+                  <Switch 
+                    id="auto-reorder" 
+                    checked={autoReorder} 
+                    onCheckedChange={setAutoReorder} 
                   />
                 </div>
-                
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input 
-                      id="address" 
-                      value={systemSettings.address} 
-                      onChange={e => setSystemSettings({...systemSettings, address: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input 
-                      id="phone" 
-                      value={systemSettings.phone} 
-                      onChange={e => setSystemSettings({...systemSettings, phone: e.target.value})}
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="website">Website</Label>
-                    <div className="flex">
-                      <span className="inline-flex items-center px-3 border border-r-0 border-input rounded-l-md bg-muted text-muted-foreground">
-                        https://
-                      </span>
-                      <Input 
-                        id="website" 
-                        value={systemSettings.website} 
-                        onChange={e => setSystemSettings({...systemSettings, website: e.target.value})}
-                        className="rounded-l-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tax-id">Tax ID / EIN</Label>
-                    <Input 
-                      id="tax-id" 
-                      value={systemSettings.taxId} 
-                      onChange={e => setSystemSettings({...systemSettings, taxId: e.target.value})}
-                    />
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <h3 className="text-lg font-medium">Advanced Settings</h3>
-                
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="api-key">API Key</Label>
-                    <div className="relative">
-                      <Input
-                        id="api-key"
-                        type="password"
-                        value="sk_live_51Jh4k2E8gKGsZQBjTrGpK"
-                        readOnly
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => toast.success("API key copied to clipboard")}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Use this key to authenticate API requests.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="webhook-url">Webhook URL</Label>
-                    <Input id="webhook-url" placeholder="https://your-domain.com/webhook" />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Receive real-time updates via webhook.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline">
-                    Cancel
-                  </Button>
-                  <Button type="submit" className="flex items-center gap-2">
-                    <Save className="h-4 w-4" />
-                    Save System Settings
-                  </Button>
-                </div>
-              </form>
+              </div>
             </CardContent>
+            <CardFooter>
+              <Button onClick={saveInventorySettings}>Save Changes</Button>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
-    </MainLayout>
+    </div>
   );
 };
 

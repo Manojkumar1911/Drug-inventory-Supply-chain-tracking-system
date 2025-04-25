@@ -1,10 +1,22 @@
 
-import React, { useState, useEffect } from "react";
-import MainLayout from "@/components/layout/MainLayout";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
+import { Input } from "@/components/ui/input";
+import { 
+  RefreshCcw, 
+  PlusCircle, 
+  Search, 
+  ArrowRightLeft,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  ChevronRight,
+  Edit,
+  Trash2
+} from "lucide-react";
+import { 
   Table,
   TableBody,
   TableCell,
@@ -12,313 +24,338 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  ArrowLeftRight,
-  Calendar,
-  Check,
-  Clock,
-  MoreHorizontal,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  Loader2
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useToast } from "@/components/ui/use-toast";
-import { fetchTransfers } from "@/services/api";
-import { useQuery } from "@tanstack/react-query";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const fallbackTransfersData = [
+// Mock data for transfers
+const transfersData = [
   {
-    id: "TRF-3021",
+    id: "TR-2405",
     product: "Amoxicillin 500mg",
-    quantity: 500,
-    from: "Main Warehouse",
-    to: "North Branch",
+    quantity: 150,
+    fromLocation: "Main Warehouse",
+    toLocation: "Downtown Branch",
+    requestedBy: "Sarah Johnson",
+    status: "Completed",
+    priority: "Normal",
+    requestDate: "2025-04-15T09:30:00",
+    completedDate: "2025-04-17T14:15:00"
+  },
+  {
+    id: "TR-2406",
+    product: "Metformin 1000mg",
+    quantity: 200,
+    fromLocation: "Main Warehouse",
+    toLocation: "Cambridge Branch",
+    requestedBy: "Michael Chen",
+    status: "In Transit",
+    priority: "High",
+    requestDate: "2025-04-18T11:20:00",
+    completedDate: null
+  },
+  {
+    id: "TR-2407",
+    product: "Lisinopril 10mg",
+    quantity: 75,
+    fromLocation: "Main Warehouse",
+    toLocation: "Boston Branch",
     requestedBy: "John Smith",
     status: "Pending Approval",
     priority: "Normal",
-    createdAt: "Apr 14, 2025"
+    requestDate: "2025-04-22T16:45:00",
+    completedDate: null
   },
   {
-    id: "TRF-3020",
-    product: "Lisinopril 10mg",
-    quantity: 300,
-    from: "South Branch",
-    to: "West Branch",
-    requestedBy: "Maria Garcia",
-    status: "In Transit",
-    priority: "High",
-    createdAt: "Apr 13, 2025"
-  },
-  {
-    id: "TRF-3019",
-    product: "Insulin Glargine 100mL",
-    quantity: 50,
-    from: "Main Warehouse",
-    to: "East Branch",
-    requestedBy: "Alex Johnson",
-    status: "Completed",
-    priority: "Urgent",
-    createdAt: "Apr 12, 2025"
-  },
-  {
-    id: "TRF-3018",
+    id: "TR-2408",
     product: "Atorvastatin 40mg",
-    quantity: 250,
-    from: "North Branch",
-    to: "South Branch",
-    requestedBy: "Sarah Williams",
-    status: "In Transit",
-    priority: "Normal",
-    createdAt: "Apr 12, 2025"
+    quantity: 100,
+    fromLocation: "Cambridge Branch",
+    toLocation: "Downtown Branch",
+    requestedBy: "Lisa Rodriguez",
+    status: "Rejected",
+    priority: "Low",
+    requestDate: "2025-04-19T10:30:00",
+    completedDate: "2025-04-20T13:45:00"
   },
   {
-    id: "TRF-3017",
-    product: "Metformin 1000mg",
-    quantity: 400,
-    from: "Main Warehouse",
-    to: "West Branch",
-    requestedBy: "Robert Brown",
+    id: "TR-2409",
+    product: "Sertraline 100mg",
+    quantity: 60,
+    fromLocation: "Downtown Branch",
+    toLocation: "Cambridge Branch",
+    requestedBy: "Robert Johnson",
+    status: "Pending Approval",
+    priority: "Urgent",
+    requestDate: "2025-04-23T09:15:00",
+    completedDate: null
+  },
+  {
+    id: "TR-2410",
+    product: "Albuterol Inhaler",
+    quantity: 30,
+    fromLocation: "Main Warehouse",
+    toLocation: "Boston Branch",
+    requestedBy: "Emily Wilson",
     status: "Completed",
-    priority: "Low",
-    createdAt: "Apr 11, 2025"
+    priority: "High",
+    requestDate: "2025-04-16T14:30:00",
+    completedDate: "2025-04-18T11:20:00"
   }
 ];
 
-const getStatusColor = (status: string) => {
-  switch(status) {
-    case "Completed":
-      return "bg-green-100 text-green-800 hover:bg-green-100/80 dark:bg-green-900/30 dark:text-green-300";
-    case "In Transit":
-      return "bg-blue-100 text-blue-800 hover:bg-blue-100/80 dark:bg-blue-900/30 dark:text-blue-300";
-    case "Pending Approval":
-      return "bg-amber-100 text-amber-800 hover:bg-amber-100/80 dark:bg-amber-900/30 dark:text-amber-300";
-    case "Cancelled":
-      return "bg-red-100 text-red-800 hover:bg-red-100/80 dark:bg-red-900/30 dark:text-red-300";
-    default:
-      return "bg-gray-100 text-gray-800 hover:bg-gray-100/80 dark:bg-gray-900/30 dark:text-gray-300";
-  }
-};
-
-const getPriorityColor = (priority: string) => {
-  switch(priority) {
-    case "Urgent":
-      return "bg-red-100 text-red-800 hover:bg-red-100/80 dark:bg-red-900/30 dark:text-red-300";
-    case "High":
-      return "bg-orange-100 text-orange-800 hover:bg-orange-100/80 dark:bg-orange-900/30 dark:text-orange-300";
-    case "Normal":
-      return "bg-blue-100 text-blue-800 hover:bg-blue-100/80 dark:bg-blue-900/30 dark:text-blue-300";
-    case "Low":
-      return "bg-gray-100 text-gray-800 hover:bg-gray-100/80 dark:bg-gray-900/30 dark:text-gray-300";
-    default:
-      return "bg-gray-100 text-gray-800 hover:bg-gray-100/80 dark:bg-gray-900/30 dark:text-gray-300";
-  }
-};
-
 const Transfers = () => {
-  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-
-  const { data: transfers, isLoading, error } = useQuery({
-    queryKey: ['transfers'],
-    queryFn: fetchTransfers,
-    meta: {
-      onError: () => {
-        toast({
-          title: "Error",
-          description: "Failed to load transfers. Using sample data instead.",
-          variant: "destructive"
-        });
-      }
-    }
-  });
-
-  const displayedTransfers = transfers || fallbackTransfersData;
+  const [priorityFilter, setPriorityFilter] = useState("all");
   
-  const filteredTransfers = displayedTransfers.filter(transfer => {
+  const filteredTransfers = transfersData.filter(transfer => {
+    // Search filter
     const matchesSearch = 
-      transfer.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       transfer.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transfer.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transfer.to.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "pending" && transfer.status === "Pending Approval") ||
-      (statusFilter === "completed" && transfer.status === "Completed") || 
-      (statusFilter === "transit" && transfer.status === "In Transit");
+      transfer.fromLocation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      transfer.toLocation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      transfer.id.toLowerCase().includes(searchQuery.toLowerCase());
       
-    return matchesSearch && matchesStatus;
+    // Status filter
+    const matchesStatus = statusFilter === "all" || transfer.status.toLowerCase() === statusFilter.toLowerCase();
+    
+    // Priority filter
+    const matchesPriority = priorityFilter === "all" || transfer.priority.toLowerCase() === priorityFilter.toLowerCase();
+    
+    return matchesSearch && matchesStatus && matchesPriority;
   });
-
-  const handleStatusFilterChange = (status: string) => {
-    setStatusFilter(status);
+  
+  // Count transfers by status
+  const pendingCount = transfersData.filter(t => t.status === "Pending Approval").length;
+  const inTransitCount = transfersData.filter(t => t.status === "In Transit").length;
+  const completedCount = transfersData.filter(t => t.status === "Completed").length;
+  
+  // Format date
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric'
+    });
   };
-
+  
+  // Get status badge styling
+  const getStatusBadge = (status: string) => {
+    switch(status) {
+      case "Completed":
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">Completed</Badge>;
+      case "In Transit":
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">In Transit</Badge>;
+      case "Pending Approval":
+        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">Pending Approval</Badge>;
+      case "Rejected":
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">Rejected</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+  
+  // Get priority badge styling
+  const getPriorityBadge = (priority: string) => {
+    switch(priority) {
+      case "Urgent":
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100/80 dark:bg-red-900/30 dark:text-red-300">Urgent</Badge>;
+      case "High":
+        return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100/80 dark:bg-orange-900/30 dark:text-orange-300">High</Badge>;
+      case "Normal":
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100/80 dark:bg-blue-900/30 dark:text-blue-300">Normal</Badge>;
+      case "Low":
+        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100/80 dark:bg-gray-900/30 dark:text-gray-300">Low</Badge>;
+      default:
+        return <Badge>{priority}</Badge>;
+    }
+  };
+  
   return (
-    <MainLayout>
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Transfers</h1>
-            <p className="text-muted-foreground">
-              Manage medication transfers between locations
-            </p>
-          </div>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Transfer
-          </Button>
-        </div>
-
-        <div className="flex flex-col gap-4 md:flex-row">
-          <div className="flex flex-1 items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search transfers..."
-                className="w-full bg-background pl-8 shadow-none md:max-w-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <Button variant="outline" size="icon" title="Advanced search">
-              <SlidersHorizontal className="h-4 w-4" />
-              <span className="sr-only">Advanced search</span>
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button 
-              variant={statusFilter === "all" ? "default" : "outline"} 
-              size="sm" 
-              className="gap-2"
-              onClick={() => handleStatusFilterChange("all")}
-            >
-              <ArrowLeftRight className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">All Transfers</span>
-            </Button>
-            <Button 
-              variant={statusFilter === "pending" ? "default" : "outline"} 
-              size="sm" 
-              className="gap-2"
-              onClick={() => handleStatusFilterChange("pending")}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Pending</span>
-            </Button>
-            <Button 
-              variant={statusFilter === "completed" ? "default" : "outline"} 
-              size="sm" 
-              className="gap-2"
-              onClick={() => handleStatusFilterChange("completed")}
-            >
-              <Check className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Completed</span>
-            </Button>
-          </div>
-        </div>
-
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Inventory Transfers</h1>
+        <Button className="flex items-center gap-2">
+          <PlusCircle className="h-4 w-4" />
+          New Transfer
+        </Button>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Transfer Requests</CardTitle>
-            <CardDescription>
-              View and manage medication transfers between locations
-            </CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Pending Approval
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center items-center h-48">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-2">Loading transfers...</span>
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Transfer ID</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>From</TableHead>
-                      <TableHead>To</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTransfers.length > 0 ? (
-                      filteredTransfers.map((transfer) => (
-                        <TableRow key={transfer.id}>
-                          <TableCell className="font-medium">{transfer.id}</TableCell>
-                          <TableCell>{transfer.product}</TableCell>
-                          <TableCell>{transfer.quantity}</TableCell>
-                          <TableCell>{transfer.from}</TableCell>
-                          <TableCell>{transfer.to}</TableCell>
-                          <TableCell>
-                            <Badge className={getStatusColor(transfer.status)}>
-                              {transfer.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={getPriorityColor(transfer.priority)} variant="outline">
-                              {transfer.priority}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span>{transfer.createdAt}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                  <span className="sr-only">Actions</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem>View details</DropdownMenuItem>
-                                <DropdownMenuItem>Edit transfer</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem>Approve</DropdownMenuItem>
-                                <DropdownMenuItem>Cancel</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={9} className="h-24 text-center">
-                          No transfers found
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+            <div className="flex items-center">
+              <Clock className="h-5 w-5 text-amber-500 mr-2" />
+              <span className="text-2xl font-bold">{pendingCount}</span>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              In Transit
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <RefreshCcw className="h-5 w-5 text-blue-500 mr-2" />
+              <span className="text-2xl font-bold">{inTransitCount}</span>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Completed
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <CheckCircle2 className="h-5 w-5 text-green-500 mr-2" />
+              <span className="text-2xl font-bold">{completedCount}</span>
+            </div>
           </CardContent>
         </Card>
       </div>
-    </MainLayout>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Transfer Requests</CardTitle>
+          <CardDescription>Manage inventory movement between locations</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col space-y-4">
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search transfers..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="pending approval">Pending Approval</SelectItem>
+                    <SelectItem value="in transit">In Transit</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priorities</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-center">Quantity</TableHead>
+                  <TableHead>From → To</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTransfers.map((transfer) => (
+                  <TableRow key={transfer.id}>
+                    <TableCell className="font-medium">{transfer.id}</TableCell>
+                    <TableCell>{transfer.product}</TableCell>
+                    <TableCell className="text-center">{transfer.quantity}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{transfer.fromLocation}</span>
+                        <ArrowRightLeft className="h-3.5 w-3.5 text-muted-foreground rotate-90" />
+                        <span className="text-sm">{transfer.toLocation}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(transfer.status)}</TableCell>
+                    <TableCell>{getPriorityBadge(transfer.priority)}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">{formatDate(transfer.requestDate)}</div>
+                      {transfer.completedDate && (
+                        <div className="text-xs text-muted-foreground">
+                          Completed: {formatDate(transfer.completedDate)}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" disabled={transfer.status === "Completed" || transfer.status === "Rejected"}>
+                          <Edit className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={transfer.status === "Completed"}>
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                        <Button variant="ghost" size="icon">
+                          <ChevronRight className="h-4 w-4" />
+                          <span className="sr-only">View details</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                
+                {filteredTransfers.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <AlertCircle className="h-8 w-8 text-muted-foreground mb-2" />
+                        <h3 className="text-lg font-medium">No transfers found</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Try adjusting your filters or search query
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

@@ -16,7 +16,7 @@ export const initSettingsRoutes = (pool: Pool) => {
 // Get all settings
 router.get('/', authenticateToken, async (_req: Request, res: Response) => {
   try {
-    const settings = await settingsModel.getSettings();
+    const settings = await settingsModel.findAll();
     res.json(settings);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -27,7 +27,7 @@ router.get('/', authenticateToken, async (_req: Request, res: Response) => {
 router.get('/:key', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { key } = req.params;
-    const setting = await settingsModel.getSetting(key);
+    const setting = await settingsModel.findByKey(key);
     if (!setting) {
       return res.status(404).json({ message: 'Setting not found' });
     }
@@ -47,7 +47,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Key and value are required' });
     }
     
-    const setting = await settingsModel.upsertSetting({
+    const setting = await settingsModel.upsert({
       key,
       value,
       group_name: groupName,
@@ -65,7 +65,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 router.delete('/:key', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { key } = req.params;
-    const result = await settingsModel.deleteSetting(key);
+    const result = await settingsModel.delete(key);
     if (!result) {
       return res.status(404).json({ message: 'Setting not found' });
     }

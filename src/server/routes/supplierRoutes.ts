@@ -62,7 +62,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 // Delete supplier
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const supplier = await supplierModel.remove(parseInt(req.params.id));
+    const supplier = await supplierModel.delete(parseInt(req.params.id));
     if (!supplier) {
       return res.status(404).json({ message: 'Supplier not found' });
     }
