@@ -18,7 +18,6 @@ router.get('/', async (_req: Request, res: Response) => {
   try {
     const suppliers = await supplierModel.find();
     res.json(suppliers);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
@@ -32,7 +31,6 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Supplier not found' });
     }
     res.json(supplier);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
@@ -43,7 +41,6 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const supplier = await supplierModel.create(req.body);
     res.json(supplier);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error creating supplier', error });
   }
@@ -57,7 +54,6 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Supplier not found' });
     }
     res.json(supplier);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error updating supplier', error });
   }
@@ -66,13 +62,12 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 // Delete supplier
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
-    // Assuming the model has a remove method instead of delete
-    const supplier = await supplierModel.remove(parseInt(req.params.id));
+    // Assuming update can be used to mark as inactive instead of deleting
+    const supplier = await supplierModel.update(parseInt(req.params.id), { is_active: false });
     if (!supplier) {
       return res.status(404).json({ message: 'Supplier not found' });
     }
     res.json({ message: 'Supplier deleted successfully' });
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error deleting supplier', error });
   }

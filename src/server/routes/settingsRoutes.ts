@@ -14,10 +14,19 @@ export const initSettingsRoutes = (pool: Pool) => {
 };
 
 // Get all settings
-router.get('/', authenticateToken, async (_req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
-    // Assuming the model has a find method instead of findAll
-    const settings = await settingsModel.find();
+    const settings = await settingsModel.findAll();
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+});
+
+// Get settings by group
+router.get('/group/:groupName', async (req: Request, res: Response) => {
+  try {
+    const settings = await settingsModel.findByGroup(req.params.groupName);
     res.json(settings);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -25,56 +34,49 @@ router.get('/', authenticateToken, async (_req: Request, res: Response) => {
 });
 
 // Get setting by key
-router.get('/:key', authenticateToken, async (req: Request, res: Response) => {
+router.get('/key/:key', async (req: Request, res: Response) => {
   try {
-    const { key } = req.params;
-    const setting = await settingsModel.findByKey(key);
+    const setting = await settingsModel.findByKey(req.params.key);
     if (!setting) {
       return res.status(404).json({ message: 'Setting not found' });
     }
     res.json(setting);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
 });
 
-// Create or update setting
+// Create or Update setting
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { key, value, groupName, description } = req.body;
-    const userId = req.body.user?.id;
     
-    if (!key || !value) {
-      return res.status(400).json({ message: 'Key and value are required' });
+    // Check if setting exists
+    const existingSetting = await settingsModel.findByKey(key);
+    
+    let result;
+    if (existingSetting) {
+      // Update existing setting
+      result = await settingsModel.update(key, { value, groupName, description, updatedBy: req.user?.id });
+    } else {
+      // Create new setting
+      result = await settingsModel.create({ key, value, groupName, description });
     }
     
-    // Assuming the model has a create/update method instead of upsert
-    const setting = await settingsModel.update(key, {
-      key,
-      value,
-      group_name: groupName,
-      description,
-      updated_by: userId
-    });
-    
-    res.json(setting);
-    return;
+    res.json(result);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating setting', error });
+    res.status(500).json({ message: 'Error saving setting', error });
   }
 });
 
 // Delete setting
 router.delete('/:key', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { key } = req.params;
-    const result = await settingsModel.delete(key);
-    if (!result) {
+    const deleted = await settingsModel.remove(req.params.key);
+    if (!deleted) {
       return res.status(404).json({ message: 'Setting not found' });
     }
     res.json({ message: 'Setting deleted successfully' });
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error deleting setting', error });
   }

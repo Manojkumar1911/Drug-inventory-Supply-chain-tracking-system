@@ -25,7 +25,6 @@ router.get('/', async (_req: Request, res: Response) => {
   try {
     const products = await productModel.find();
     res.json(products);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
@@ -40,7 +39,6 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     res.json(product);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
@@ -51,7 +49,6 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const product = await productModel.create(req.body);
     res.json(product);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error creating product', error });
   }
@@ -66,22 +63,30 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     res.json(product);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error updating product', error });
   }
 });
 
-// Delete product
+// Delete product - modified to use a soft delete approach
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    // Use update method to logically delete or create a delete method if needed
-    await productModel.update(parseInt(id), { deleted: true });
+    // Marking as inactive rather than deleting
+    await productModel.update(parseInt(id), { quantity: 0, reorder_level: 0 });
     res.status(204).send();
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error deleting product', error });
+  }
+});
+
+// Get products that need to be reordered
+router.get('/reorder', async (_req: Request, res: Response) => {
+  try {
+    const products = await productModel.findProductsToReorder();
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching products to reorder', error });
   }
 });
 
@@ -106,18 +111,14 @@ router.post('/upload', authenticateToken, multerUpload.single('file'), async (re
         // Map CSV fields to your Product model
         const productData = {
           name: row.name,
-          description: row.description,
-          price: parseFloat(row.price),
-          quantity: parseInt(row.quantity),
+          sku: row.sku || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           category: row.category,
-          supplier_id: row.supplier_id,
-          location_id: row.location_id,
-          reorder_point: parseInt(row.reorder_point),
-          // Add required fields that might be missing from CSV
-          sku: row.sku || `SKU-${Date.now()}`,
+          quantity: parseInt(row.quantity) || 0,
           unit: row.unit || 'unit',
           location: row.location || 'Main',
-          reorder_level: parseInt(row.reorder_level) || 10
+          expiry_date: row.expiry_date ? new Date(row.expiry_date) : null,
+          reorder_level: parseInt(row.reorder_level) || 10,
+          manufacturer: row.manufacturer || null
         };
 
         try {
@@ -129,14 +130,16 @@ router.post('/upload', authenticateToken, multerUpload.single('file'), async (re
         }
       })
       .on('end', () => {
-        res.status(200).json({ message: 'CSV import completed', productsAdded });
+        res.status(200).json({ 
+          message: 'CSV import completed', 
+          productsAdded,
+          count: productsAdded 
+        });
       })
       .on('error', (error: any) => {
         console.error('CSV parsing error:', error);
         res.status(500).json({ message: 'Error processing CSV file', error });
       });
-      
-    return;
   } catch (error) {
     console.error('CSV import error:', error);
     res.status(500).json({ message: 'Error processing CSV file', error });

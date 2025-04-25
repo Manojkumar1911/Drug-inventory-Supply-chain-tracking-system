@@ -23,10 +23,10 @@ const MainLayout: React.FC = () => {
       />
       
       <div className="flex flex-1 flex-col">
-        <div className="sticky top-0 z-30">
+        <div className="fixed top-0 right-0 left-0 z-30 md:left-64">
           <Header toggleSidebar={toggleSidebar} />
         </div>
-        <main className="flex-1 p-4 md:p-6 md:ml-0">
+        <main className="flex-1 p-4 md:p-6 md:ml-0 mt-16">
           <Outlet />
         </main>
       </div>

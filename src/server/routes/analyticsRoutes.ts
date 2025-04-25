@@ -13,68 +13,57 @@ export const initAnalyticsRoutes = (pool: Pool) => {
   return router;
 };
 
-// Get analytics data
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+// Get all analytics
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const { startDate, endDate, metricType } = req.query;
+    const { startDate, endDate, metricType, location, category } = req.query;
     
     let filters: any = {};
-    
     if (startDate && endDate) {
-      filters.dateRange = {
-        start: startDate as string,
-        end: endDate as string
+      filters.dateRange = { 
+        start: new Date(startDate as string), 
+        end: new Date(endDate as string) 
       };
     }
+    if (metricType) filters.metricType = metricType as string;
+    if (location) filters.location = location as string;
+    if (category) filters.category = category as string;
     
-    if (metricType) {
-      filters.metricType = metricType as string;
-    }
-    
-    const data = await analyticsModel.getAnalytics(filters);
-    res.json(data);
+    const analytics = await analyticsModel.find(filters);
+    res.json(analytics);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
 });
 
-// Get summary metrics
-router.get('/summary', authenticateToken, async (_req: Request, res: Response) => {
+// Get analytics by metric type
+router.get('/metric/:metricType', async (req: Request, res: Response) => {
   try {
-    const summary = await analyticsModel.getSummary();
-    res.json(summary);
+    const analytics = await analyticsModel.findByMetric(req.params.metricType);
+    res.json(analytics);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
 });
 
-// Get metrics by category
-router.get('/by-category', authenticateToken, async (_req: Request, res: Response) => {
-  try {
-    const categoryData = await analyticsModel.getByCategory();
-    res.json(categoryData);
-  } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-// Get metrics by location
-router.get('/by-location', authenticateToken, async (_req: Request, res: Response) => {
-  try {
-    const locationData = await analyticsModel.getByLocation();
-    res.json(locationData);
-  } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-// Create new analytics data point
+// Create analytics record
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const newData = await analyticsModel.create(req.body);
-    res.status(201).json(newData);
+    const analytic = await analyticsModel.create(req.body);
+    res.json(analytic);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating analytics data', error });
+    res.status(500).json({ message: 'Error creating analytic record', error });
+  }
+});
+
+// Get summary analytics
+router.get('/summary', async (req: Request, res: Response) => {
+  try {
+    const { period } = req.query;
+    const summary = await analyticsModel.getSummary(period as string || 'weekly');
+    res.json(summary);
+  } catch (error) {
+    res.status(500).json({ message: 'Error getting analytics summary', error });
   }
 });
 

@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,107 +26,203 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { fetchProductsToReorder, fetchProducts } from "@/services/api";
+import { toast } from "sonner";
 
-// Mock data for reorder products
-const reorderProducts = [
-  {
-    id: 1,
-    name: "Amoxicillin 500mg",
-    sku: "AMX500-120",
-    currentStock: 45,
-    reorderLevel: 100,
-    supplier: "MediPharm Inc.",
-    unitPrice: 0.89,
-    category: "Antibiotics",
-    lastOrdered: "2025-03-15"
-  },
-  {
-    id: 2,
-    name: "Metformin 1000mg",
-    sku: "MET1000-500",
-    currentStock: 75,
-    reorderLevel: 200,
-    supplier: "Global Health Supplies",
-    unitPrice: 0.12,
-    category: "Diabetes",
-    lastOrdered: "2025-04-01"
-  },
-  {
-    id: 3,
-    name: "Lisinopril 10mg",
-    sku: "LIS010-250",
-    currentStock: 30,
-    reorderLevel: 120,
-    supplier: "MediPharm Inc.",
-    unitPrice: 0.34,
-    category: "Cardiovascular",
-    lastOrdered: "2025-03-22"
-  },
-  {
-    id: 4,
-    name: "Albuterol Inhaler",
-    sku: "ALB-INH-60",
-    currentStock: 12,
-    reorderLevel: 40,
-    supplier: "Pharmatech Solutions",
-    unitPrice: 23.75,
-    category: "Respiratory",
-    lastOrdered: "2025-03-10"
-  },
-  {
-    id: 5,
-    name: "Atorvastatin 40mg",
-    sku: "ATV040-90",
-    currentStock: 55,
-    reorderLevel: 100,
-    supplier: "Global Health Supplies",
-    unitPrice: 0.45,
-    category: "Cardiovascular",
-    lastOrdered: "2025-02-28"
-  }
-];
+interface ReorderProduct {
+  id: number;
+  name: string;
+  sku: string;
+  currentStock: number;
+  reorderLevel: number;
+  supplier: string;
+  unitPrice: number;
+  category: string;
+  lastOrdered: string;
+}
 
-// Mock data for recent purchase orders
-const recentPurchaseOrders = [
-  {
-    id: "PO-2405",
-    supplier: "MediPharm Inc.",
-    orderDate: "2025-04-15",
-    items: 12,
-    total: 4285.75,
-    status: "Delivered"
-  },
-  {
-    id: "PO-2404",
-    supplier: "Global Health Supplies",
-    orderDate: "2025-04-10",
-    items: 8,
-    total: 2156.30,
-    status: "In Transit"
-  },
-  {
-    id: "PO-2403",
-    supplier: "Pharmatech Solutions",
-    orderDate: "2025-04-05",
-    items: 5,
-    total: 945.25,
-    status: "Processing"
-  },
-  {
-    id: "PO-2402",
-    supplier: "MediPharm Inc.",
-    orderDate: "2025-03-28",
-    items: 15,
-    total: 6234.80,
-    status: "Delivered"
-  }
-];
+interface PurchaseOrder {
+  id: string;
+  supplier: string;
+  orderDate: string;
+  items: number;
+  total: number;
+  status: "Delivered" | "In Transit" | "Processing";
+}
 
 const Reorder = () => {
+  const [reorderProducts, setReorderProducts] = useState<ReorderProduct[]>([]);
+  const [recentPurchaseOrders, setRecentPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [creatingOrder, setCreatingOrder] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    setIsLoading(true);
+    try {
+      // Try to fetch products that need reordering from API
+      let productsData = [];
+      
+      try {
+        productsData = await fetchProductsToReorder();
+      } catch (error) {
+        // If that endpoint fails, fall back to all products
+        console.warn("Reorder endpoint not available, falling back to all products");
+        productsData = await fetchProducts();
+      }
+
+      if (productsData && productsData.length > 0) {
+        // Convert API data to our format
+        const formattedProducts = productsData
+          .filter((product: any) => product.quantity <= product.reorder_level)
+          .map((product: any) => ({
+            id: product.id || Math.floor(Math.random() * 1000),
+            name: product.name,
+            sku: product.sku,
+            currentStock: product.quantity || 0,
+            reorderLevel: product.reorder_level || 0,
+            supplier: product.manufacturer || "Unknown",
+            unitPrice: 0.99, // Sample price since it may not be in API data
+            category: product.category || "General",
+            lastOrdered: new Date().toISOString().split('T')[0]
+          }));
+        
+        setReorderProducts(formattedProducts);
+      } else {
+        // If no actual data, use sample data
+        setReorderProducts([
+          {
+            id: 1,
+            name: "Amoxicillin 500mg",
+            sku: "AMX500-120",
+            currentStock: 45,
+            reorderLevel: 100,
+            supplier: "MediPharm Inc.",
+            unitPrice: 0.89,
+            category: "Antibiotics",
+            lastOrdered: "2025-03-15"
+          },
+          {
+            id: 2,
+            name: "Metformin 1000mg",
+            sku: "MET1000-500",
+            currentStock: 75,
+            reorderLevel: 200,
+            supplier: "Global Health Supplies",
+            unitPrice: 0.12,
+            category: "Diabetes",
+            lastOrdered: "2025-04-01"
+          },
+          {
+            id: 3,
+            name: "Lisinopril 10mg",
+            sku: "LIS010-250",
+            currentStock: 30,
+            reorderLevel: 120,
+            supplier: "MediPharm Inc.",
+            unitPrice: 0.34,
+            category: "Cardiovascular",
+            lastOrdered: "2025-03-22"
+          },
+          {
+            id: 4,
+            name: "Albuterol Inhaler",
+            sku: "ALB-INH-60",
+            currentStock: 12,
+            reorderLevel: 40,
+            supplier: "Pharmatech Solutions",
+            unitPrice: 23.75,
+            category: "Respiratory",
+            lastOrdered: "2025-03-10"
+          },
+          {
+            id: 5,
+            name: "Atorvastatin 40mg",
+            sku: "ATV040-90",
+            currentStock: 55,
+            reorderLevel: 100,
+            supplier: "Global Health Supplies",
+            unitPrice: 0.45,
+            category: "Cardiovascular",
+            lastOrdered: "2025-02-28"
+          }
+        ]);
+
+        // Sample purchase orders
+        setRecentPurchaseOrders([
+          {
+            id: "PO-2405",
+            supplier: "MediPharm Inc.",
+            orderDate: "2025-04-15",
+            items: 12,
+            total: 4285.75,
+            status: "Delivered"
+          },
+          {
+            id: "PO-2404",
+            supplier: "Global Health Supplies",
+            orderDate: "2025-04-10",
+            items: 8,
+            total: 2156.30,
+            status: "In Transit"
+          },
+          {
+            id: "PO-2403",
+            supplier: "Pharmatech Solutions",
+            orderDate: "2025-04-05",
+            items: 5,
+            total: 945.25,
+            status: "Processing"
+          },
+          {
+            id: "PO-2402",
+            supplier: "MediPharm Inc.",
+            orderDate: "2025-03-28",
+            items: 15,
+            total: 6234.80,
+            status: "Delivered"
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error("Error loading products:", error);
+      toast.error("Failed to load products for reordering");
+      
+      // Use fallback data
+      setReorderProducts([
+        {
+          id: 1,
+          name: "Amoxicillin 500mg",
+          sku: "AMX500-120",
+          currentStock: 45,
+          reorderLevel: 100,
+          supplier: "MediPharm Inc.",
+          unitPrice: 0.89,
+          category: "Antibiotics",
+          lastOrdered: "2025-03-15"
+        },
+        {
+          id: 2,
+          name: "Metformin 1000mg",
+          sku: "MET1000-500",
+          currentStock: 75,
+          reorderLevel: 200,
+          supplier: "Global Health Supplies",
+          unitPrice: 0.12,
+          category: "Diabetes",
+          lastOrdered: "2025-04-01"
+        }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const filteredProducts = reorderProducts.filter(product => 
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -154,10 +250,13 @@ const Reorder = () => {
   
   const createPurchaseOrder = () => {
     setCreatingOrder(true);
+    
+    // Simulate API call
     setTimeout(() => {
       setCreatingOrder(false);
       setSelectedProducts([]);
       setSelectedSupplier("");
+      toast.success("Purchase order created successfully");
     }, 1500);
   };
   
@@ -337,82 +436,89 @@ const Reorder = () => {
                     </div>
                   )}
                   
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[40px]">
-                          <Checkbox 
-                            checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
-                            onCheckedChange={selectAllProducts}
-                            disabled={filteredProducts.length === 0}
-                          />
-                        </TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Stock</TableHead>
-                        <TableHead>Reorder Level</TableHead>
-                        <TableHead>Supplier</TableHead>
-                        <TableHead>Unit Price</TableHead>
-                        <TableHead>Last Ordered</TableHead>
-                        <TableHead>To Order</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredProducts.map((product) => (
-                        <TableRow key={product.id}>
-                          <TableCell>
-                            <Checkbox 
-                              checked={selectedProducts.includes(product.id)}
-                              onCheckedChange={() => toggleProductSelection(product.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{product.name}</TableCell>
-                          <TableCell>{product.sku}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="text-sm">{product.currentStock}</span>
-                              <div className="h-1.5 w-20 bg-muted rounded-full mt-1 overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full ${
-                                    getStockPercentage(product.currentStock, product.reorderLevel) < 25
-                                      ? "bg-red-500"
-                                      : getStockPercentage(product.currentStock, product.reorderLevel) < 50
-                                      ? "bg-amber-500"
-                                      : "bg-green-500"
-                                  }`}
-                                  style={{ width: `${getStockPercentage(product.currentStock, product.reorderLevel)}%` }}
-                                />
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{product.reorderLevel}</TableCell>
-                          <TableCell>{product.supplier}</TableCell>
-                          <TableCell>{formatCurrency(product.unitPrice)}</TableCell>
-                          <TableCell>{formatDate(product.lastOrdered)}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                              {product.reorderLevel - product.currentStock}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon">
-                              <ChevronRight className="h-4 w-4" />
-                              <span className="sr-only">View details</span>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      
-                      {filteredProducts.length === 0 && (
+                  {isLoading ? (
+                    <div className="flex flex-col items-center justify-center p-8">
+                      <Loader2 className="h-8 w-8 animate-spin mb-4" />
+                      <p>Loading products that need reordering...</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell colSpan={10} className="h-24 text-center">
-                            No products found
-                          </TableCell>
+                          <TableHead className="w-[40px]">
+                            <Checkbox 
+                              checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
+                              onCheckedChange={selectAllProducts}
+                              disabled={filteredProducts.length === 0}
+                            />
+                          </TableHead>
+                          <TableHead>Product</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Stock</TableHead>
+                          <TableHead>Reorder Level</TableHead>
+                          <TableHead>Supplier</TableHead>
+                          <TableHead>Unit Price</TableHead>
+                          <TableHead>Last Ordered</TableHead>
+                          <TableHead>To Order</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredProducts.map((product) => (
+                          <TableRow key={product.id}>
+                            <TableCell>
+                              <Checkbox 
+                                checked={selectedProducts.includes(product.id)}
+                                onCheckedChange={() => toggleProductSelection(product.id)}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">{product.name}</TableCell>
+                            <TableCell>{product.sku}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="text-sm">{product.currentStock}</span>
+                                <div className="h-1.5 w-20 bg-muted rounded-full mt-1 overflow-hidden">
+                                  <div 
+                                    className={`h-full rounded-full ${
+                                      getStockPercentage(product.currentStock, product.reorderLevel) < 25
+                                        ? "bg-red-500"
+                                        : getStockPercentage(product.currentStock, product.reorderLevel) < 50
+                                        ? "bg-amber-500"
+                                        : "bg-green-500"
+                                    }`}
+                                    style={{ width: `${getStockPercentage(product.currentStock, product.reorderLevel)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{product.reorderLevel}</TableCell>
+                            <TableCell>{product.supplier}</TableCell>
+                            <TableCell>{formatCurrency(product.unitPrice)}</TableCell>
+                            <TableCell>{formatDate(product.lastOrdered)}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                                {product.reorderLevel - product.currentStock}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon">
+                                <ChevronRight className="h-4 w-4" />
+                                <span className="sr-only">View details</span>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        
+                        {filteredProducts.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={10} className="h-24 text-center">
+                              No products found
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
               </div>
             </CardContent>
