@@ -20,6 +20,7 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -35,26 +36,39 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    setErrorMessage(null);
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0];
       if (droppedFile.type === "text/csv" || droppedFile.name.endsWith('.csv')) {
         setFile(droppedFile);
       } else {
+        setErrorMessage("Please upload a CSV file");
         toast.error("Please upload a CSV file");
       }
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMessage(null);
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      if (selectedFile.type === "text/csv" || selectedFile.name.endsWith('.csv')) {
+        setFile(selectedFile);
+      } else {
+        setErrorMessage("Please upload a CSV file");
+        toast.error("Please upload a CSV file");
+      }
     }
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file) {
+      setErrorMessage("Please select a CSV file first");
+      return;
+    }
     
+    setErrorMessage(null);
     setUploading(true);
     setUploadProgress(0);
     
@@ -94,7 +108,7 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
         
         setTimeout(() => {
           setUploadComplete(true);
-          toast.success(`CSV file uploaded successfully. ${result.count} products imported.`);
+          toast.success(`CSV file uploaded successfully. ${result.count || 0} products imported.`);
           
           // After 2 seconds, reset and close
           setTimeout(() => {
@@ -111,8 +125,11 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
       }
     } catch (error) {
       console.error('Error uploading file:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to upload file");
+      const message = error instanceof Error ? error.message : "Failed to upload file";
+      setErrorMessage(message);
+      toast.error(message);
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -121,22 +138,28 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
     setUploadProgress(0);
     setUploading(false);
     setUploadComplete(false);
+    setErrorMessage(null);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(newOpen) => {
+      if (!uploading || !newOpen) {
+        onOpenChange(newOpen);
+        if (!newOpen) resetUpload();
+      }
+    }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Upload CSV File</DialogTitle>
           <DialogDescription>
-            Upload a CSV file containing product information
+            Upload a CSV file containing product information. Required columns: name, category, quantity, unit, sku, reorder_level, location. Optional: manufacturer, expiry_date.
           </DialogDescription>
         </DialogHeader>
         
         {!uploading && !uploadComplete ? (
           <div 
             className={`mt-4 p-8 border-2 border-dashed rounded-lg text-center ${
-              isDragging ? 'border-primary bg-primary/5' : 'border-gray-300 dark:border-gray-600'
+              isDragging ? 'border-primary bg-primary/5' : errorMessage ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
             }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -144,23 +167,29 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
           >
             <div className="space-y-4">
               <div className="flex justify-center">
-                <FileText className="w-12 h-12 text-muted-foreground" />
+                <FileText className={`w-12 h-12 ${errorMessage ? 'text-red-500' : 'text-muted-foreground'}`} />
               </div>
               
               <div>
-                <p className="text-sm font-medium">
+                <p className={`text-sm font-medium ${errorMessage ? 'text-red-500' : ''}`}>
                   {file ? file.name : "Drag and drop your CSV file here"}
                 </p>
-                {!file && (
+                {!file && !errorMessage && (
                   <p className="text-xs text-muted-foreground mt-1">
                     or click to browse
+                  </p>
+                )}
+                
+                {errorMessage && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errorMessage}
                   </p>
                 )}
               </div>
               
               {!file && (
                 <Button
-                  variant="outline"
+                  variant={errorMessage ? "destructive" : "outline"}
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
                   className="mt-2"

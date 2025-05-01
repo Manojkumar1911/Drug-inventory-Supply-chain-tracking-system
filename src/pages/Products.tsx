@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,151 +69,73 @@ const Products: React.FC = () => {
       const data = await fetchProducts();
       if (data && data.length > 0) {
         const formattedProducts = data.map((product: any) => ({
-          id: product._id || `P${Math.floor(Math.random() * 1000)}`,
+          id: product.id || `P${Math.floor(Math.random() * 1000)}`,
           name: product.name,
-          category: product.category,
+          category: product.category || "Uncategorized",
           sku: product.sku,
           stock: {
             current: product.quantity || 0,
-            minimum: product.reorderLevel || 0,
+            minimum: product.reorder_level || 0,
           },
           location: product.location || "Unknown",
           supplier: product.manufacturer || "Unknown",
-          status: product.quantity <= product.reorderLevel 
-            ? product.quantity === 0 
-              ? "Out of Stock" 
-              : "Low Stock" 
-            : "In Stock",
-          expiryDate: product.expiryDate 
-            ? new Date(product.expiryDate).toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric' 
-              }) 
-            : undefined,
+          status: getProductStatus(product),
+          expiryDate: formatExpiryDate(product.expiry_date)
         }));
         setProducts(formattedProducts);
       } else {
-        setProducts([
-          {
-            id: "P001",
-            name: "Amoxicillin 500mg",
-            category: "Antibiotics",
-            sku: "AMX500-100",
-            stock: {
-              current: 120,
-              minimum: 150,
-            },
-            location: "Shelf A-12",
-            supplier: "MediPharm Inc.",
-            status: "Low Stock",
-            expiryDate: "Jan 15, 2026",
-          },
-          {
-            id: "P002",
-            name: "Lisinopril 10mg",
-            category: "Cardiovascular",
-            sku: "LSN010-60",
-            stock: {
-              current: 45,
-              minimum: 50,
-            },
-            location: "Shelf B-03",
-            supplier: "PharmaTech",
-            status: "Low Stock",
-            expiryDate: "Mar 22, 2026",
-          },
-          {
-            id: "P003",
-            name: "Insulin Glargine 100mL",
-            category: "Diabetes",
-            sku: "INS100-10",
-            stock: {
-              current: 85,
-              minimum: 50,
-            },
-            location: "Cold Storage A",
-            supplier: "BioLife",
-            status: "Expiring Soon",
-            expiryDate: "May 10, 2025",
-          },
-          {
-            id: "P004",
-            name: "Ibuprofen 200mg",
-            category: "Pain Relief",
-            sku: "IBP200-500",
-            stock: {
-              current: 320,
-              minimum: 100,
-            },
-            location: "Shelf D-07",
-            supplier: "MediPharm Inc.",
-            status: "In Stock",
-            expiryDate: "Sep 30, 2026",
-          },
-          {
-            id: "P005",
-            name: "Metformin 1000mg",
-            category: "Diabetes",
-            sku: "MET1000-100",
-            stock: {
-              current: 0,
-              minimum: 50,
-            },
-            location: "Shelf C-04",
-            supplier: "PharmaTech",
-            status: "Out of Stock",
-            expiryDate: "Aug 15, 2026",
-          },
-          {
-            id: "P006",
-            name: "Atorvastatin 40mg",
-            category: "Cardiovascular",
-            sku: "ATV040-90",
-            stock: {
-              current: 76,
-              minimum: 30,
-            },
-            location: "Shelf B-01",
-            supplier: "MediPharm Inc.",
-            status: "In Stock",
-            expiryDate: "Nov 05, 2026",
-          },
-          {
-            id: "P007",
-            name: "Albuterol Inhaler",
-            category: "Respiratory",
-            sku: "ALB100-12",
-            stock: {
-              current: 18,
-              minimum: 20,
-            },
-            location: "Shelf E-09",
-            supplier: "RespiraTech",
-            status: "Low Stock",
-            expiryDate: "Feb 28, 2026",
-          },
-          {
-            id: "P008",
-            name: "Loratadine 10mg",
-            category: "Allergy",
-            sku: "LRT010-30",
-            stock: {
-              current: 67,
-              minimum: 25,
-            },
-            location: "Shelf D-02",
-            supplier: "PharmaTech",
-            status: "In Stock",
-            expiryDate: "Dec 12, 2025",
-          },
-        ]);
+        // No dummy data, just empty array
+        setProducts([]);
       }
     } catch (error) {
       console.error("Error fetching products:", error);
       toast.error("Failed to load products");
+      setProducts([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getProductStatus = (product: any): "In Stock" | "Low Stock" | "Out of Stock" | "Expiring Soon" => {
+    if (!product) return "Out of Stock";
+    
+    const quantity = product.quantity || 0;
+    const reorderLevel = product.reorder_level || 0;
+    
+    // Check expiry date first
+    if (product.expiry_date) {
+      const expiryDate = new Date(product.expiry_date);
+      const today = new Date();
+      const ninetyDaysFromNow = new Date();
+      ninetyDaysFromNow.setDate(today.getDate() + 90);
+      
+      if (expiryDate <= ninetyDaysFromNow) {
+        return "Expiring Soon";
+      }
+    }
+    
+    if (quantity === 0) {
+      return "Out of Stock";
+    } else if (quantity <= reorderLevel) {
+      return "Low Stock";
+    } else {
+      return "In Stock";
+    }
+  };
+
+  const formatExpiryDate = (dateString?: string | null): string | undefined => {
+    if (!dateString) return undefined;
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return undefined;
     }
   };
 
@@ -246,6 +169,16 @@ const Products: React.FC = () => {
     loadProducts();
     toast.success("Products refreshed");
   };
+
+  // Count products by status
+  const countsByStatus = {
+    lowStock: products.filter(p => p.status === "Low Stock").length,
+    outOfStock: products.filter(p => p.status === "Out of Stock").length,
+    expiringSoon: products.filter(p => p.status === "Expiring Soon").length
+  };
+
+  // Count unique categories
+  const uniqueCategories = new Set(products.map(p => p.category));
 
   return (
     <div className="flex flex-col gap-6">
@@ -283,7 +216,7 @@ const Products: React.FC = () => {
           <CardContent>
             <div className="text-2xl font-bold">{products.length}</div>
             <p className="text-xs text-muted-foreground">
-              Across 6 categories
+              Across {uniqueCategories.size} categories
             </p>
           </CardContent>
         </Card>
@@ -293,7 +226,7 @@ const Products: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {products.filter(p => p.status === "Low Stock").length}
+              {countsByStatus.lowStock}
             </div>
             <p className="text-xs text-muted-foreground">
               Below minimum threshold
@@ -306,7 +239,7 @@ const Products: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {products.filter(p => p.status === "Out of Stock").length}
+              {countsByStatus.outOfStock}
             </div>
             <p className="text-xs text-muted-foreground">
               Requires immediate reorder
@@ -319,7 +252,7 @@ const Products: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {products.filter(p => p.status === "Expiring Soon").length}
+              {countsByStatus.expiringSoon}
             </div>
             <p className="text-xs text-muted-foreground">
               Within 90 days
@@ -380,7 +313,7 @@ const Products: React.FC = () => {
                 <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm font-medium">No products found</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {searchQuery ? "Try a different search term" : "Add products to get started"}
+                  {searchQuery ? "Try a different search term" : "Upload a CSV file or add products to get started"}
                 </p>
               </div>
             ) : (
@@ -426,10 +359,14 @@ const Products: React.FC = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{product.expiryDate}</span>
-                        </div>
+                        {product.expiryDate ? (
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{product.expiryDate}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

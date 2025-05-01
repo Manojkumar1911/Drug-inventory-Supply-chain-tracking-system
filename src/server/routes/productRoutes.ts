@@ -105,36 +105,43 @@ router.post('/upload', authenticateToken, multerUpload.single('file'), async (re
     readableStream.push(fileBuffer);
     readableStream.push(null); // Signal the end of the stream
 
+    const results: any[] = [];
+    
     readableStream
       .pipe(csv())
-      .on('data', async (row: any) => {
-        // Map CSV fields to your Product model
-        const productData = {
-          name: row.name,
-          sku: row.sku || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          category: row.category,
-          quantity: parseInt(row.quantity) || 0,
-          unit: row.unit || 'unit',
-          location: row.location || 'Main',
-          expiry_date: row.expiry_date ? new Date(row.expiry_date) : null,
-          reorder_level: parseInt(row.reorder_level) || 10,
-          manufacturer: row.manufacturer || null
-        };
-
-        try {
-          await productModel.create(productData);
-          productsAdded++;
-        } catch (error) {
-          console.error('Error inserting product:', error);
-          // Optionally, handle the error for individual rows
-        }
+      .on('data', (row: any) => {
+        // Store each row for batch processing
+        results.push(row);
       })
-      .on('end', () => {
-        res.status(200).json({ 
-          message: 'CSV import completed', 
-          productsAdded,
-          count: productsAdded 
-        });
+      .on('end', async () => {
+        try {
+          for (const row of results) {
+            // Map CSV fields to your Product model
+            const productData = {
+              name: row.name,
+              sku: row.sku || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+              category: row.category,
+              quantity: parseInt(row.quantity) || 0,
+              unit: row.unit || 'unit',
+              location: row.location || 'Main',
+              expiry_date: row.expiry_date ? new Date(row.expiry_date) : null,
+              reorder_level: parseInt(row.reorder_level) || 10,
+              manufacturer: row.manufacturer || null
+            };
+
+            await productModel.create(productData);
+            productsAdded++;
+          }
+
+          res.status(200).json({ 
+            message: 'CSV import completed', 
+            productsAdded,
+            count: productsAdded 
+          });
+        } catch (error) {
+          console.error('Error processing CSV rows:', error);
+          res.status(500).json({ message: 'Error processing CSV data', error });
+        }
       })
       .on('error', (error: any) => {
         console.error('CSV parsing error:', error);

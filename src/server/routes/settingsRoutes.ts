@@ -14,69 +14,82 @@ export const initSettingsRoutes = (pool: Pool) => {
 };
 
 // Get all settings
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const settings = await settingsModel.findAll();
+    // Assuming findAll is implemented in your model
+    const settings = await settingsModel.find();
     res.json(settings);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Error fetching settings', error });
   }
 });
 
 // Get settings by group
 router.get('/group/:groupName', async (req: Request, res: Response) => {
   try {
-    const settings = await settingsModel.findByGroup(req.params.groupName);
+    // Assuming findByGroup is implemented in your model
+    const { groupName } = req.params;
+    const settings = await settingsModel.find({ group_name: groupName });
     res.json(settings);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Error fetching settings by group', error });
   }
 });
 
-// Get setting by key
-router.get('/key/:key', async (req: Request, res: Response) => {
-  try {
-    const setting = await settingsModel.findByKey(req.params.key);
-    if (!setting) {
-      return res.status(404).json({ message: 'Setting not found' });
-    }
-    res.json(setting);
-  } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-// Create or Update setting
+// Update or create a setting
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { key, value, groupName, description } = req.body;
+    const { key, value, description, group_name } = req.body;
     
-    // Check if setting exists
-    const existingSetting = await settingsModel.findByKey(key);
-    
-    let result;
-    if (existingSetting) {
-      // Update existing setting
-      result = await settingsModel.update(key, { value, groupName, description, updatedBy: req.user?.id });
-    } else {
-      // Create new setting
-      result = await settingsModel.create({ key, value, groupName, description });
+    if (!key || !value) {
+      return res.status(400).json({ message: 'Key and value are required' });
     }
     
-    res.json(result);
+    // Check if the setting already exists
+    const existingSettings = await settingsModel.find({ key });
+    const existingSetting = existingSettings.length > 0 ? existingSettings[0] : null;
+    
+    let setting;
+    if (existingSetting) {
+      // Update the existing setting
+      setting = await settingsModel.update(existingSetting.id, { 
+        value, 
+        description: description || existingSetting.description,
+        group_name: group_name || existingSetting.group_name,
+        // Only use req.user.id if it exists
+        updated_by: req.user?.id || null
+      });
+    } else {
+      // Create a new setting
+      setting = await settingsModel.create({
+        key,
+        value,
+        description: description || '',
+        group_name: group_name || 'general',
+        // Only use req.user.id if it exists
+        updated_by: req.user?.id || null
+      });
+    }
+    
+    res.json(setting);
   } catch (error) {
-    res.status(500).json({ message: 'Error saving setting', error });
+    res.status(500).json({ message: 'Error updating setting', error });
   }
 });
 
-// Delete setting
+// Delete a setting
 router.delete('/:key', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const deleted = await settingsModel.remove(req.params.key);
-    if (!deleted) {
+    const { key } = req.params;
+    // Assuming remove function exists in your model
+    const existingSettings = await settingsModel.find({ key });
+    
+    if (existingSettings.length === 0) {
       return res.status(404).json({ message: 'Setting not found' });
     }
-    res.json({ message: 'Setting deleted successfully' });
+    
+    await settingsModel.delete(existingSettings[0].id);
+    res.status(204).send();
   } catch (error) {
     res.status(500).json({ message: 'Error deleting setting', error });
   }

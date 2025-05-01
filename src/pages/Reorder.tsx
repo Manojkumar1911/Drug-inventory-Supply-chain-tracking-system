@@ -72,153 +72,58 @@ const Reorder = () => {
       try {
         productsData = await fetchProductsToReorder();
       } catch (error) {
-        // If that endpoint fails, fall back to all products
+        // If that endpoint fails, fall back to all products and filter them
         console.warn("Reorder endpoint not available, falling back to all products");
         productsData = await fetchProducts();
+        // Filter products that need reordering client-side if server filtering fails
+        if (productsData && productsData.length > 0) {
+          productsData = productsData.filter((p: any) => 
+            (p.quantity <= p.reorder_level)
+          );
+        }
       }
 
       if (productsData && productsData.length > 0) {
         // Convert API data to our format
-        const formattedProducts = productsData
-          .filter((product: any) => product.quantity <= product.reorder_level)
-          .map((product: any) => ({
-            id: product.id || Math.floor(Math.random() * 1000),
-            name: product.name,
-            sku: product.sku,
-            currentStock: product.quantity || 0,
-            reorderLevel: product.reorder_level || 0,
-            supplier: product.manufacturer || "Unknown",
-            unitPrice: 0.99, // Sample price since it may not be in API data
-            category: product.category || "General",
-            lastOrdered: new Date().toISOString().split('T')[0]
-          }));
+        const formattedProducts = productsData.map((product: any) => ({
+          id: product.id || Math.floor(Math.random() * 1000),
+          name: product.name,
+          sku: product.sku,
+          currentStock: product.quantity || 0,
+          reorderLevel: product.reorder_level || 0,
+          supplier: product.manufacturer || "Unknown",
+          unitPrice: 0.99, // Sample price since it may not be in API data
+          category: product.category || "General",
+          lastOrdered: new Date().toISOString().split('T')[0]
+        }));
         
         setReorderProducts(formattedProducts);
+        
+        // Generate sample purchase orders based on actual suppliers
+        const suppliers = [...new Set(formattedProducts.map(p => p.supplier))];
+        if (suppliers.length > 0) {
+          const sampleOrders = suppliers.slice(0, 3).map((supplier, index) => ({
+            id: `PO-24${String(index + 1).padStart(2, '0')}`,
+            supplier,
+            orderDate: new Date(Date.now() - (index * 5 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+            items: Math.floor(Math.random() * 10) + 5,
+            total: Math.round(Math.random() * 5000) + 1000,
+            status: ["Delivered", "In Transit", "Processing"][index % 3] as "Delivered" | "In Transit" | "Processing"
+          }));
+          setRecentPurchaseOrders(sampleOrders);
+        } else {
+          setRecentPurchaseOrders([]);
+        }
       } else {
-        // If no actual data, use sample data
-        setReorderProducts([
-          {
-            id: 1,
-            name: "Amoxicillin 500mg",
-            sku: "AMX500-120",
-            currentStock: 45,
-            reorderLevel: 100,
-            supplier: "MediPharm Inc.",
-            unitPrice: 0.89,
-            category: "Antibiotics",
-            lastOrdered: "2025-03-15"
-          },
-          {
-            id: 2,
-            name: "Metformin 1000mg",
-            sku: "MET1000-500",
-            currentStock: 75,
-            reorderLevel: 200,
-            supplier: "Global Health Supplies",
-            unitPrice: 0.12,
-            category: "Diabetes",
-            lastOrdered: "2025-04-01"
-          },
-          {
-            id: 3,
-            name: "Lisinopril 10mg",
-            sku: "LIS010-250",
-            currentStock: 30,
-            reorderLevel: 120,
-            supplier: "MediPharm Inc.",
-            unitPrice: 0.34,
-            category: "Cardiovascular",
-            lastOrdered: "2025-03-22"
-          },
-          {
-            id: 4,
-            name: "Albuterol Inhaler",
-            sku: "ALB-INH-60",
-            currentStock: 12,
-            reorderLevel: 40,
-            supplier: "Pharmatech Solutions",
-            unitPrice: 23.75,
-            category: "Respiratory",
-            lastOrdered: "2025-03-10"
-          },
-          {
-            id: 5,
-            name: "Atorvastatin 40mg",
-            sku: "ATV040-90",
-            currentStock: 55,
-            reorderLevel: 100,
-            supplier: "Global Health Supplies",
-            unitPrice: 0.45,
-            category: "Cardiovascular",
-            lastOrdered: "2025-02-28"
-          }
-        ]);
-
-        // Sample purchase orders
-        setRecentPurchaseOrders([
-          {
-            id: "PO-2405",
-            supplier: "MediPharm Inc.",
-            orderDate: "2025-04-15",
-            items: 12,
-            total: 4285.75,
-            status: "Delivered"
-          },
-          {
-            id: "PO-2404",
-            supplier: "Global Health Supplies",
-            orderDate: "2025-04-10",
-            items: 8,
-            total: 2156.30,
-            status: "In Transit"
-          },
-          {
-            id: "PO-2403",
-            supplier: "Pharmatech Solutions",
-            orderDate: "2025-04-05",
-            items: 5,
-            total: 945.25,
-            status: "Processing"
-          },
-          {
-            id: "PO-2402",
-            supplier: "MediPharm Inc.",
-            orderDate: "2025-03-28",
-            items: 15,
-            total: 6234.80,
-            status: "Delivered"
-          }
-        ]);
+        // No products need reordering
+        setReorderProducts([]);
+        setRecentPurchaseOrders([]);
       }
     } catch (error) {
       console.error("Error loading products:", error);
       toast.error("Failed to load products for reordering");
-      
-      // Use fallback data
-      setReorderProducts([
-        {
-          id: 1,
-          name: "Amoxicillin 500mg",
-          sku: "AMX500-120",
-          currentStock: 45,
-          reorderLevel: 100,
-          supplier: "MediPharm Inc.",
-          unitPrice: 0.89,
-          category: "Antibiotics",
-          lastOrdered: "2025-03-15"
-        },
-        {
-          id: 2,
-          name: "Metformin 1000mg",
-          sku: "MET1000-500",
-          currentStock: 75,
-          reorderLevel: 200,
-          supplier: "Global Health Supplies",
-          unitPrice: 0.12,
-          category: "Diabetes",
-          lastOrdered: "2025-04-01"
-        }
-      ]);
+      setReorderProducts([]);
+      setRecentPurchaseOrders([]);
     } finally {
       setIsLoading(false);
     }
@@ -227,7 +132,8 @@ const Reorder = () => {
   const filteredProducts = reorderProducts.filter(product => 
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.supplier.toLowerCase().includes(searchQuery.toLowerCase())
+    product.supplier.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (selectedSupplier && product.supplier === selectedSupplier)
   );
   
   const suppliers = [...new Set(reorderProducts.map(product => product.supplier))];
@@ -249,6 +155,11 @@ const Reorder = () => {
   };
   
   const createPurchaseOrder = () => {
+    if (selectedProducts.length === 0) {
+      toast.error("Please select at least one product");
+      return;
+    }
+    
     setCreatingOrder(true);
     
     // Simulate API call
@@ -257,6 +168,21 @@ const Reorder = () => {
       setSelectedProducts([]);
       setSelectedSupplier("");
       toast.success("Purchase order created successfully");
+      
+      // Add the new order to the list
+      const newOrder = {
+        id: `PO-24${String(recentPurchaseOrders.length + 1).padStart(2, '0')}`,
+        supplier: selectedSupplier || "Multiple Suppliers",
+        orderDate: new Date().toISOString().split('T')[0],
+        items: selectedProducts.length,
+        total: selectedProducts.reduce((sum, id) => {
+          const product = reorderProducts.find(p => p.id === id);
+          return sum + ((product?.reorderLevel || 0) - (product?.currentStock || 0)) * (product?.unitPrice || 0);
+        }, 0),
+        status: "Processing" as const
+      };
+      
+      setRecentPurchaseOrders(prev => [newOrder, ...prev]);
     }, 1500);
   };
   
@@ -290,7 +216,11 @@ const Reorder = () => {
             <FileSpreadsheet className="h-4 w-4" />
             Export
           </Button>
-          <Button className="flex items-center gap-2">
+          <Button 
+            className="flex items-center gap-2"
+            onClick={createPurchaseOrder}
+            disabled={creatingOrder || selectedProducts.length === 0}
+          >
             <PlusCircle className="h-4 w-4" />
             Create Order
           </Button>
@@ -406,7 +336,7 @@ const Reorder = () => {
                     <div className="bg-muted p-2 rounded-md mb-4 flex items-center justify-between">
                       <span className="text-sm">{selectedProducts.length} products selected</span>
                       <div className="flex gap-2">
-                        <Select disabled={creatingOrder}>
+                        <Select disabled={creatingOrder} value={selectedSupplier} onValueChange={setSelectedSupplier}>
                           <SelectTrigger className="h-8 text-xs">
                             <SelectValue placeholder="Select supplier" />
                           </SelectTrigger>
@@ -447,7 +377,7 @@ const Reorder = () => {
                         <TableRow>
                           <TableHead className="w-[40px]">
                             <Checkbox 
-                              checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
+                              checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length}
                               onCheckedChange={selectAllProducts}
                               disabled={filteredProducts.length === 0}
                             />
@@ -464,55 +394,59 @@ const Reorder = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredProducts.map((product) => (
-                          <TableRow key={product.id}>
-                            <TableCell>
-                              <Checkbox 
-                                checked={selectedProducts.includes(product.id)}
-                                onCheckedChange={() => toggleProductSelection(product.id)}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">{product.name}</TableCell>
-                            <TableCell>{product.sku}</TableCell>
-                            <TableCell>
-                              <div className="flex flex-col">
-                                <span className="text-sm">{product.currentStock}</span>
-                                <div className="h-1.5 w-20 bg-muted rounded-full mt-1 overflow-hidden">
-                                  <div 
-                                    className={`h-full rounded-full ${
-                                      getStockPercentage(product.currentStock, product.reorderLevel) < 25
-                                        ? "bg-red-500"
-                                        : getStockPercentage(product.currentStock, product.reorderLevel) < 50
-                                        ? "bg-amber-500"
-                                        : "bg-green-500"
-                                    }`}
-                                    style={{ width: `${getStockPercentage(product.currentStock, product.reorderLevel)}%` }}
-                                  />
+                        {filteredProducts.length > 0 ? (
+                          filteredProducts.map((product) => (
+                            <TableRow key={product.id}>
+                              <TableCell>
+                                <Checkbox 
+                                  checked={selectedProducts.includes(product.id)}
+                                  onCheckedChange={() => toggleProductSelection(product.id)}
+                                />
+                              </TableCell>
+                              <TableCell className="font-medium">{product.name}</TableCell>
+                              <TableCell>{product.sku}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <span className="text-sm">{product.currentStock}</span>
+                                  <div className="h-1.5 w-20 bg-muted rounded-full mt-1 overflow-hidden">
+                                    <div 
+                                      className={`h-full rounded-full ${
+                                        getStockPercentage(product.currentStock, product.reorderLevel) < 25
+                                          ? "bg-red-500"
+                                          : getStockPercentage(product.currentStock, product.reorderLevel) < 50
+                                          ? "bg-amber-500"
+                                          : "bg-green-500"
+                                      }`}
+                                      style={{ width: `${Math.min(getStockPercentage(product.currentStock, product.reorderLevel), 100)}%` }}
+                                    />
+                                  </div>
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{product.reorderLevel}</TableCell>
-                            <TableCell>{product.supplier}</TableCell>
-                            <TableCell>{formatCurrency(product.unitPrice)}</TableCell>
-                            <TableCell>{formatDate(product.lastOrdered)}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                                {product.reorderLevel - product.currentStock}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="icon">
-                                <ChevronRight className="h-4 w-4" />
-                                <span className="sr-only">View details</span>
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        
-                        {filteredProducts.length === 0 && (
+                              </TableCell>
+                              <TableCell>{product.reorderLevel}</TableCell>
+                              <TableCell>{product.supplier}</TableCell>
+                              <TableCell>{formatCurrency(product.unitPrice)}</TableCell>
+                              <TableCell>{formatDate(product.lastOrdered)}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                                  {Math.max(0, product.reorderLevel - product.currentStock)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="icon">
+                                  <ChevronRight className="h-4 w-4" />
+                                  <span className="sr-only">View details</span>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
                           <TableRow>
                             <TableCell colSpan={10} className="h-24 text-center">
-                              No products found
+                              {searchQuery || selectedSupplier ? (
+                                <p>No products match your search criteria</p>
+                              ) : (
+                                <p>No products currently need reordering</p>
+                              )}
                             </TableCell>
                           </TableRow>
                         )}
@@ -534,49 +468,55 @@ const Reorder = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Order Date</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentPurchaseOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-medium">{order.id}</TableCell>
-                      <TableCell>{order.supplier}</TableCell>
-                      <TableCell>{formatDate(order.orderDate)}</TableCell>
-                      <TableCell>{order.items}</TableCell>
-                      <TableCell>{formatCurrency(order.total)}</TableCell>
-                      <TableCell>
-                        <Badge
-                          className={
-                            order.status === "Delivered" 
-                              ? "bg-green-100 text-green-800 hover:bg-green-100/80 dark:bg-green-900/30 dark:text-green-300" 
-                              : order.status === "In Transit" 
-                              ? "bg-blue-100 text-blue-800 hover:bg-blue-100/80 dark:bg-blue-900/30 dark:text-blue-300"
-                              : "bg-amber-100 text-amber-800 hover:bg-amber-100/80 dark:bg-amber-900/30 dark:text-amber-300"
-                          }
-                        >
-                          {order.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon">
-                          <ChevronRight className="h-4 w-4" />
-                          <span className="sr-only">View details</span>
-                        </Button>
-                      </TableCell>
+              {recentPurchaseOrders.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead>Order Date</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {recentPurchaseOrders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-medium">{order.id}</TableCell>
+                        <TableCell>{order.supplier}</TableCell>
+                        <TableCell>{formatDate(order.orderDate)}</TableCell>
+                        <TableCell>{order.items}</TableCell>
+                        <TableCell>{formatCurrency(order.total)}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              order.status === "Delivered" 
+                                ? "bg-green-100 text-green-800 hover:bg-green-100/80 dark:bg-green-900/30 dark:text-green-300" 
+                                : order.status === "In Transit" 
+                                ? "bg-blue-100 text-blue-800 hover:bg-blue-100/80 dark:bg-blue-900/30 dark:text-blue-300"
+                                : "bg-amber-100 text-amber-800 hover:bg-amber-100/80 dark:bg-amber-900/30 dark:text-amber-300"
+                            }
+                          >
+                            {order.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon">
+                            <ChevronRight className="h-4 w-4" />
+                            <span className="sr-only">View details</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="p-8 text-center">
+                  <p>No purchase orders found</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
