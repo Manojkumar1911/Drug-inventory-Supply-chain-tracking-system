@@ -28,14 +28,20 @@ import {
   PackagePlus, 
   RefreshCw, 
   Search, 
-  SlidersHorizontal 
+  SlidersHorizontal,
+  Edit,
+  Trash,
+  AlertTriangle
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { fetchProducts } from "@/services/api";
+import { supabase } from "@/integrations/supabase/client";
 import CsvUploadDialog from "@/components/dialogs/CsvUploadDialog";
 import AddProductDialog from "@/components/dialogs/AddProductDialog";
+import EditProductDialog from "@/components/dialogs/EditProductDialog";
+import DeleteProductDialog from "@/components/dialogs/DeleteProductDialog";
 
 interface Product {
   id: string;
@@ -57,16 +63,41 @@ const Products: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [csvUploadOpen, setCsvUploadOpen] = useState(false);
   const [addProductOpen, setAddProductOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [editProductOpen, setEditProductOpen] = useState(false);
+  const [deleteProductOpen, setDeleteProductOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     loadProducts();
+
+    // Subscribe to product changes
+    const channel = supabase
+      .channel('public:products')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'products' 
+      }, () => {
+        // Reload products when changes occur
+        loadProducts();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadProducts = async () => {
     setIsLoading(true);
     try {
-      const data = await fetchProducts();
+      const { data, error } = await supabase
+        .from('products')
+        .select('*');
+
+      if (error) throw error;
+
       if (data && data.length > 0) {
         const formattedProducts = data.map((product: any) => ({
           id: product.id || `P${Math.floor(Math.random() * 1000)}`,
@@ -80,11 +111,12 @@ const Products: React.FC = () => {
           location: product.location || "Unknown",
           supplier: product.manufacturer || "Unknown",
           status: getProductStatus(product),
-          expiryDate: formatExpiryDate(product.expiry_date)
+          expiryDate: formatExpiryDate(product.expiry_date),
+          rawData: product
         }));
         setProducts(formattedProducts);
       } else {
-        // No dummy data, just empty array
+        // No data from Supabase, set empty array
         setProducts([]);
       }
     } catch (error) {
@@ -170,6 +202,42 @@ const Products: React.FC = () => {
     toast.success("Products refreshed");
   };
 
+  const handleEditProduct = (product: any) => {
+    setSelectedProduct(product.rawData);
+    setEditProductOpen(true);
+  };
+
+  const handleDeleteProduct = (product: any) => {
+    setSelectedProduct(product.rawData);
+    setDeleteProductOpen(true);
+  };
+
+  const checkExpiringProducts = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("https://labzxhoshhzfixlzccrw.supabase.co/functions/v1/send-alert-notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabase.auth.session()?.access_token || ""}`
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success("Expiry alerts sent successfully");
+      } else {
+        toast.error("Failed to send expiry alerts");
+      }
+    } catch (error) {
+      console.error("Error checking expiring products:", error);
+      toast.error("Failed to check expiring products");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Count products by status
   const countsByStatus = {
     lowStock: products.filter(p => p.status === "Low Stock").length,
@@ -189,7 +257,7 @@ const Products: React.FC = () => {
             Manage your pharmaceutical inventory
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button 
             variant="outline" 
             className="gap-2 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20"
@@ -197,6 +265,14 @@ const Products: React.FC = () => {
           >
             <Download className="h-4 w-4" />
             Upload CSV
+          </Button>
+          <Button 
+            variant="outline"
+            className="gap-2 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 hover:from-yellow-500/20 hover:to-amber-500/20"
+            onClick={checkExpiringProducts}
+          >
+            <AlertTriangle className="h-4 w-4" />
+            Send Expiry Alerts
           </Button>
           <Button 
             className="gap-2 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
@@ -378,10 +454,16 @@ const Products: React.FC = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>View details</DropdownMenuItem>
-                            <DropdownMenuItem>Edit product</DropdownMenuItem>
-                            <DropdownMenuItem>Adjust stock</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditProduct(product)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit product
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteProduct(product)}>
+                              <Trash className="h-4 w-4 mr-2 text-destructive" />
+                              Delete product
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem>Adjust stock</DropdownMenuItem>
                             <DropdownMenuItem>Transfer stock</DropdownMenuItem>
                             <DropdownMenuItem>Generate reorder</DropdownMenuItem>
                           </DropdownMenuContent>
@@ -398,6 +480,20 @@ const Products: React.FC = () => {
       
       <CsvUploadDialog open={csvUploadOpen} onOpenChange={setCsvUploadOpen} />
       <AddProductDialog open={addProductOpen} onOpenChange={setAddProductOpen} />
+      {selectedProduct && (
+        <>
+          <EditProductDialog 
+            open={editProductOpen} 
+            onOpenChange={setEditProductOpen}
+            product={selectedProduct}
+          />
+          <DeleteProductDialog
+            open={deleteProductOpen}
+            onOpenChange={setDeleteProductOpen}
+            product={selectedProduct}
+          />
+        </>
+      )}
     </div>
   );
 };
