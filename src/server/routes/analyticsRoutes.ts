@@ -5,7 +5,7 @@ import AnalyticsModel from '../models/Analytics';
 import { authenticateToken } from './authRoutes';
 
 const router = express.Router();
-let analyticsModel: AnalyticsModel;
+let analyticsModel: typeof AnalyticsModel;
 
 // Initialize model with pool
 export const initAnalyticsRoutes = (pool: Pool) => {
@@ -13,57 +13,49 @@ export const initAnalyticsRoutes = (pool: Pool) => {
   return router;
 };
 
-// Get all analytics
+// Get analytics data with optional filtering
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, metricType, location, category } = req.query;
     
-    let filters: any = {};
-    if (startDate && endDate) {
-      filters.dateRange = { 
-        start: new Date(startDate as string), 
-        end: new Date(endDate as string) 
-      };
-    }
-    if (metricType) filters.metricType = metricType as string;
-    if (location) filters.location = location as string;
-    if (category) filters.category = category as string;
+    // Build filter object from query parameters
+    const filter: Record<string, any> = {};
     
-    const analytics = await analyticsModel.find(filters);
+    if (startDate && typeof startDate === 'string') {
+      filter.startDate = new Date(startDate);
+    }
+    
+    if (endDate && typeof endDate === 'string') {
+      filter.endDate = new Date(endDate);
+    }
+    
+    if (metricType && typeof metricType === 'string') {
+      filter.metric_type = metricType;
+    }
+    
+    if (location && typeof location === 'string') {
+      filter.location = location;
+    }
+    
+    if (category && typeof category === 'string') {
+      filter.category = category;
+    }
+    
+    const analytics = await analyticsModel.find(filter);
     res.json(analytics);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    res.status(500).json({ message: 'Error fetching analytics data', error });
   }
 });
 
-// Get analytics by metric type
-router.get('/metric/:metricType', async (req: Request, res: Response) => {
-  try {
-    const analytics = await analyticsModel.findByMetric(req.params.metricType);
-    res.json(analytics);
-  } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
-  }
-});
-
-// Create analytics record
+// Create analytics entry
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const analytic = await analyticsModel.create(req.body);
-    res.json(analytic);
+    const analyticsData = req.body;
+    const result = await analyticsModel.create(analyticsData);
+    res.status(201).json(result);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating analytic record', error });
-  }
-});
-
-// Get summary analytics
-router.get('/summary', async (req: Request, res: Response) => {
-  try {
-    const { period } = req.query;
-    const summary = await analyticsModel.getSummary(period as string || 'weekly');
-    res.json(summary);
-  } catch (error) {
-    res.status(500).json({ message: 'Error getting analytics summary', error });
+    res.status(500).json({ message: 'Error creating analytics entry', error });
   }
 });
 

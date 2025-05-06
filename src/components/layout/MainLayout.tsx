@@ -4,10 +4,8 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 
+// No toggle function needed as sidebar is static
 const MainLayout: React.FC = () => {
-  // Removed the state for sidebar toggle since we're making it static
-  // The state is still managed in the MobileSidebar component
-  
   return (
     <div className="flex min-h-screen w-full bg-background">
       {/* Static sidebar for desktop */}

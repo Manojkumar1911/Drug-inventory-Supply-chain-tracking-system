@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { 
   Table, 
   TableBody, 
@@ -28,6 +27,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchProductsToReorder, fetchProducts } from "@/services/api";
 import { toast } from "sonner";
+
+interface Product {
+  id: number;
+  name: string;
+  sku: string;
+  quantity: number;
+  reorder_level: number;
+  manufacturer: string;
+  category: string;
+  location: string;
+  expiry_date?: string;
+  unit: string;
+}
 
 interface ReorderProduct {
   id: number;
@@ -67,15 +79,16 @@ const Reorder = () => {
     setIsLoading(true);
     try {
       // Try to fetch products that need reordering from API
-      let productsData = [];
+      let productsData: Product[] = [];
       
       try {
+        // Try the dedicated reorder endpoint first
         productsData = await fetchProductsToReorder();
       } catch (error) {
-        // If that endpoint fails, fall back to all products and filter them
         console.warn("Reorder endpoint not available, falling back to all products");
+        // Fall back to all products and filter them
         productsData = await fetchProducts();
-        // Filter products that need reordering client-side if server filtering fails
+        // Filter products that need reordering client-side
         if (productsData && productsData.length > 0) {
           productsData = productsData.filter((p: any) => 
             (p.quantity <= p.reorder_level)
@@ -83,9 +96,9 @@ const Reorder = () => {
         }
       }
 
-      if (productsData && productsData.length > 0) {
+      if (productsData && Array.isArray(productsData) && productsData.length > 0) {
         // Convert API data to our format
-        const formattedProducts = productsData.map((product: any) => ({
+        const formattedProducts: ReorderProduct[] = productsData.map((product: any) => ({
           id: product.id || Math.floor(Math.random() * 1000),
           name: product.name,
           sku: product.sku,

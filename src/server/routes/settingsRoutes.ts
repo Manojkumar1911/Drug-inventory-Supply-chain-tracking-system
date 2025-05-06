@@ -56,7 +56,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
         value, 
         description: description || existingSetting.description,
         group_name: group_name || existingSetting.group_name,
-        // Only use req.user.id if it exists
+        // Only use req.user.id if it exists - added type check
         updated_by: req.user?.id || null
       });
     } else {
@@ -66,7 +66,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
         value,
         description: description || '',
         group_name: group_name || 'general',
-        // Only use req.user.id if it exists
+        // Only use req.user.id if it exists - added type check
         updated_by: req.user?.id || null
       });
     }

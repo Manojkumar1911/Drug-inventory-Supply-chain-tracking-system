@@ -80,7 +80,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
   }
 });
 
-// Get products that need to be reordered
+// Get products that need to be reordered - fix route registration
 router.get('/reorder', async (_req: Request, res: Response) => {
   try {
     const products = await productModel.findProductsToReorder();
