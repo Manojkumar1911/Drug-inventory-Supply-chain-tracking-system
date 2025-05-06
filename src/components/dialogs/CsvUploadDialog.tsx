@@ -27,55 +27,129 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
     setUploading(true);
     setUploadProgress(0);
     
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    
     try {
-      // Simulate progress
+      // Simulate initial progress
       const interval = setInterval(() => {
         setUploadProgress((prev) => {
-          if (prev >= 95) {
+          if (prev >= 90) {
             clearInterval(interval);
-            return 95;
+            return 90;
           }
           return prev + 5;
         });
       }, 100);
       
-      // Get a session token to use for authentication
-      const { data: session } = await supabase.auth.getSession();
-      const token = session?.session?.access_token;
+      // Get the current user's ID for tracking who uploaded the file
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('You must be logged in to upload files');
+      }
       
-      // Upload to our API endpoint
-      const response = await fetch('http://localhost:5000/api/products/upload', {
-        method: 'POST',
-        body: formData,
-        headers: token ? {
-          'Authorization': `Bearer ${token}`
-        } : {}
-      });
+      // Create a record in imported_products to track the import
+      const { data: importRecord, error: importError } = await supabase
+        .from('imported_products')
+        .insert({
+          file_name: selectedFile.name,
+          imported_by: user.id,
+          status: 'processing'
+        })
+        .select()
+        .single();
+        
+      if (importError) {
+        throw new Error(`Failed to create import record: ${importError.message}`);
+      }
+      
+      // Parse the CSV data client-side
+      const text = await selectedFile.text();
+      const rows = text.split('\n');
+      const headers = rows[0].split(',').map(header => header.trim());
+      
+      // Validate required columns
+      const requiredColumns = ['name', 'category', 'quantity', 'unit', 'sku', 'reorder_level', 'location'];
+      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+      
+      if (missingColumns.length > 0) {
+        throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
+      }
+      
+      // Process and insert products
+      let productsAdded = 0;
+      let errorCount = 0;
+      const productsToInsert = [];
+      
+      for (let i = 1; i < rows.length; i++) {
+        if (!rows[i].trim()) continue; // Skip empty rows
+        
+        const values = rows[i].split(',').map(value => value.trim());
+        if (values.length !== headers.length) continue; // Skip malformed rows
+        
+        const row: Record<string, any> = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index];
+        });
+        
+        // Map CSV fields to your Product model
+        const productData = {
+          name: row.name,
+          sku: row.sku || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          category: row.category,
+          quantity: parseInt(row.quantity) || 0,
+          unit: row.unit || 'unit',
+          location: row.location || 'Main',
+          expiry_date: row.expiry_date ? new Date(row.expiry_date).toISOString() : null,
+          reorder_level: parseInt(row.reorder_level) || 10,
+          manufacturer: row.manufacturer || null
+        };
+        
+        productsToInsert.push(productData);
+      }
+      
+      // Insert products in batches to avoid timeouts
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < productsToInsert.length; i += BATCH_SIZE) {
+        const batch = productsToInsert.slice(i, i + BATCH_SIZE);
+        
+        const { data: insertedData, error: insertError } = await supabase
+          .from('products')
+          .insert(batch);
+          
+        if (insertError) {
+          console.error('Error inserting batch:', insertError);
+          errorCount += batch.length;
+        } else {
+          productsAdded += batch.length;
+        }
+        
+        // Update progress based on batches processed
+        const percentComplete = Math.min(90 + (10 * (i + batch.length) / productsToInsert.length), 99);
+        setUploadProgress(Math.round(percentComplete));
+      }
+      
+      // Update the import record with results
+      await supabase
+        .from('imported_products')
+        .update({
+          status: errorCount > 0 ? 'completed_with_errors' : 'completed',
+          row_count: productsAdded,
+          error_count: errorCount
+        })
+        .eq('id', importRecord.id);
       
       clearInterval(interval);
+      setUploadProgress(100);
       
-      if (response.ok) {
-        const result = await response.json();
-        setUploadProgress(100);
+      setTimeout(() => {
+        setUploadComplete(true);
+        toast.success(`CSV file uploaded successfully. ${productsAdded} products imported.`);
         
+        // After 2 seconds, reset and close
         setTimeout(() => {
-          setUploadComplete(true);
-          toast.success(`CSV file uploaded successfully. ${result.count || 0} products imported.`);
-          
-          // After 2 seconds, reset and close
-          setTimeout(() => {
-            resetUpload();
-            onOpenChange(false);
-            window.location.reload(); // Refresh the page to show new data
-          }, 2000);
-        }, 500);
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Upload failed');
-      }
+          resetUpload();
+          onOpenChange(false);
+          window.location.reload(); // Refresh the page to show new data
+        }, 2000);
+      }, 500);
     } catch (error) {
       console.error('Error uploading file:', error);
       const message = error instanceof Error ? error.message : "Failed to upload file";

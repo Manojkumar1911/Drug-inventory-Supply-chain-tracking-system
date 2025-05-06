@@ -1,5 +1,5 @@
-
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -114,14 +114,19 @@ const getAuthHeaders = () => {
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
-// Products API
+// Products API - Updated to use Supabase
 export const fetchProducts = async () => {
   try {
-    const response = await fetch(`${API_URL}/products`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch products');
+    // Get products from Supabase
+    const { data, error } = await supabase
+      .from('products')
+      .select('*');
+      
+    if (error) {
+      throw error;
     }
-    return await response.json();
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching products:', error);
     throw error;
@@ -130,18 +135,16 @@ export const fetchProducts = async () => {
 
 export const createProduct = async (product: any) => {
   try {
-    const response = await fetch(`${API_URL}/products`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders()
-      },
-      body: JSON.stringify(product),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to create product');
+    const { data, error } = await supabase
+      .from('products')
+      .insert(product)
+      .select();
+      
+    if (error) {
+      throw error;
     }
-    return await response.json();
+    
+    return data[0];
   } catch (error) {
     console.error('Error creating product:', error);
     throw error;
@@ -151,11 +154,17 @@ export const createProduct = async (product: any) => {
 // Fetch products that need reordering
 export const fetchProductsToReorder = async () => {
   try {
-    const response = await fetch(`${API_URL}/products/reorder`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch products to reorder');
+    // Get products where quantity is less than or equal to reorder_level
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .lte('quantity', supabase.raw('reorder_level'));
+      
+    if (error) {
+      throw error;
     }
-    return await response.json();
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching products to reorder:', error);
     throw error;

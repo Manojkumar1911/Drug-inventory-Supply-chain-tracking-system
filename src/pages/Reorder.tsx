@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import {
   FilterIcon, 
   Loader2, 
   PlusCircle, 
+  RefreshCw,
   Search, 
   ShoppingCart, 
   Truck 
@@ -25,21 +25,9 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchProductsToReorder, fetchProducts } from "@/services/api";
+import { fetchProductsToReorder, createPurchaseOrder } from "@/services/api";
 import { toast } from "sonner";
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  quantity: number;
-  reorder_level: number;
-  manufacturer: string;
-  category: string;
-  location: string;
-  expiry_date?: string;
-  unit: string;
-}
+import { supabase } from "@/integrations/supabase/client";
 
 interface ReorderProduct {
   id: number;
@@ -70,34 +58,46 @@ const Reorder = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     loadProducts();
+    
+    // Set up real-time subscription for product changes
+    const channel = supabase
+      .channel('public:products')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'products' 
+      }, () => {
+        // Reload products when changes occur
+        loadProducts();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadProducts = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
-      // Try to fetch products that need reordering from API
-      let productsData: Product[] = [];
+      // Try to fetch products that need reordering using Supabase
+      const { data: productsData, error } = await supabase
+        .from('products')
+        .select('*')
+        .lte('quantity', supabase.raw('reorder_level'));
       
-      try {
-        // Try the dedicated reorder endpoint first
-        productsData = await fetchProductsToReorder();
-      } catch (error) {
-        console.warn("Reorder endpoint not available, falling back to all products");
-        // Fall back to all products and filter them
-        productsData = await fetchProducts();
-        // Filter products that need reordering client-side
-        if (productsData && productsData.length > 0) {
-          productsData = productsData.filter((p: any) => 
-            (p.quantity <= p.reorder_level)
-          );
-        }
+      if (error) {
+        throw error;
       }
 
       if (productsData && Array.isArray(productsData) && productsData.length > 0) {
-        // Convert API data to our format
+        // Convert API data to our display format
         const formattedProducts: ReorderProduct[] = productsData.map((product: any) => ({
           id: product.id || Math.floor(Math.random() * 1000),
           name: product.name,
@@ -132,8 +132,9 @@ const Reorder = () => {
         setReorderProducts([]);
         setRecentPurchaseOrders([]);
       }
-    } catch (error) {
-      console.error("Error loading products:", error);
+    } catch (err) {
+      console.error("Error loading products:", err);
+      setError("Failed to load products for reordering. Please try again.");
       toast.error("Failed to load products for reordering");
       setReorderProducts([]);
       setRecentPurchaseOrders([]);
@@ -167,7 +168,7 @@ const Reorder = () => {
     }
   };
   
-  const createPurchaseOrder = () => {
+  const createPurchaseOrder = async () => {
     if (selectedProducts.length === 0) {
       toast.error("Please select at least one product");
       return;
@@ -175,28 +176,77 @@ const Reorder = () => {
     
     setCreatingOrder(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setCreatingOrder(false);
-      setSelectedProducts([]);
-      setSelectedSupplier("");
+    try {
+      // Get selected products details
+      const selectedProductsDetails = reorderProducts.filter(p => selectedProducts.includes(p.id));
+      
+      // Calculate quantities to order (reorder level - current stock)
+      const orderItems = selectedProductsDetails.map(product => ({
+        product_id: product.id,
+        product_name: product.name,
+        quantity: Math.max(0, product.reorderLevel - product.currentStock),
+        unit_price: product.unitPrice,
+        total_price: product.unitPrice * Math.max(0, product.reorderLevel - product.currentStock)
+      }));
+      
+      const totalAmount = orderItems.reduce((sum, item) => sum + item.total_price, 0);
+      
+      // Create new purchase order in Supabase
+      const { data: orderData, error: orderError } = await supabase
+        .from('purchase_orders')
+        .insert({
+          supplier_name: selectedSupplier || "Multiple Suppliers",
+          total_amount: totalAmount,
+          status: "Processing",
+          order_number: `PO-${Date.now().toString().substring(6)}`,
+          submitted_by: "Current User",
+          payment_status: "Unpaid"
+        })
+        .select()
+        .single();
+        
+      if (orderError) {
+        throw orderError;
+      }
+      
+      // Add order items
+      if (orderData) {
+        const orderItemsWithOrderId = orderItems.map(item => ({
+          ...item,
+          purchase_order_id: orderData.id
+        }));
+        
+        const { error: itemsError } = await supabase
+          .from('purchase_order_items')
+          .insert(orderItemsWithOrderId);
+          
+        if (itemsError) {
+          throw itemsError;
+        }
+      }
+      
       toast.success("Purchase order created successfully");
       
       // Add the new order to the list
       const newOrder = {
-        id: `PO-24${String(recentPurchaseOrders.length + 1).padStart(2, '0')}`,
+        id: orderData.order_number,
         supplier: selectedSupplier || "Multiple Suppliers",
         orderDate: new Date().toISOString().split('T')[0],
         items: selectedProducts.length,
-        total: selectedProducts.reduce((sum, id) => {
-          const product = reorderProducts.find(p => p.id === id);
-          return sum + ((product?.reorderLevel || 0) - (product?.currentStock || 0)) * (product?.unitPrice || 0);
-        }, 0),
+        total: totalAmount,
         status: "Processing" as const
       };
       
       setRecentPurchaseOrders(prev => [newOrder, ...prev]);
-    }, 1500);
+      setSelectedProducts([]);
+      setSelectedSupplier("");
+      
+    } catch (error) {
+      console.error("Error creating purchase order:", error);
+      toast.error("Failed to create purchase order");
+    } finally {
+      setCreatingOrder(false);
+    }
   };
   
   const getStockPercentage = (current: number, reorderLevel: number) => {
@@ -234,12 +284,22 @@ const Reorder = () => {
             onClick={createPurchaseOrder}
             disabled={creatingOrder || selectedProducts.length === 0}
           >
-            <PlusCircle className="h-4 w-4" />
-            Create Order
+            {creatingOrder ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <PlusCircle className="h-4 w-4" />
+                Create Order
+              </>
+            )}
           </Button>
         </div>
       </div>
       
+      {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
           <CardHeader className="pb-2">
@@ -294,6 +354,7 @@ const Reorder = () => {
         </Card>
       </div>
       
+      {/* Main Content Tabs */}
       <Tabs defaultValue="reorder-items" className="space-y-4">
         <TabsList>
           <TabsTrigger value="reorder-items">Reorder Items</TabsTrigger>
@@ -337,9 +398,13 @@ const Reorder = () => {
                       </SelectContent>
                     </Select>
                     
-                    <Button variant="outline" size="icon">
-                      <FilterIcon className="h-4 w-4" />
-                      <span className="sr-only">Filter</span>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={loadProducts}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      <span className="sr-only">Refresh</span>
                     </Button>
                   </div>
                 </div>
@@ -383,6 +448,18 @@ const Reorder = () => {
                     <div className="flex flex-col items-center justify-center p-8">
                       <Loader2 className="h-8 w-8 animate-spin mb-4" />
                       <p>Loading products that need reordering...</p>
+                    </div>
+                  ) : error ? (
+                    <div className="flex flex-col items-center justify-center p-8 text-red-500">
+                      <p>{error}</p>
+                      <Button 
+                        variant="outline" 
+                        onClick={loadProducts} 
+                        className="mt-4"
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Try Again
+                      </Button>
                     </div>
                   ) : (
                     <Table>
