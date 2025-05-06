@@ -8,6 +8,14 @@ import { useNavigate } from "react-router-dom";
 const UploadSuccess: React.FC = () => {
   const navigate = useNavigate();
   
+  const handleGoToReorder = () => {
+    window.location.href = "/reorder"; // Use full page refresh to ensure data is loaded
+  };
+
+  const handleGoToProducts = () => {
+    window.location.href = "/products"; // Use full page refresh to ensure data is loaded
+  };
+  
   return (
     <motion.div 
       initial={{ scale: 0.5, opacity: 0 }}
@@ -30,7 +38,13 @@ const UploadSuccess: React.FC = () => {
       <div className="flex gap-2 mt-6">
         <Button 
           variant="outline" 
-          onClick={() => navigate('/reorder')}
+          onClick={handleGoToProducts}
+          className="mt-2"
+        >
+          View Products
+        </Button>
+        <Button 
+          onClick={handleGoToReorder}
           className="mt-2"
         >
           Go to Reorder Page

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,13 +91,15 @@ const Reorder = () => {
       const { data: productsData, error } = await supabase
         .from('products')
         .select('*')
-        .lte('quantity', supabase.raw('reorder_level'));
+        .lte('quantity', 'reorder_level');
       
       if (error) {
+        console.error("Supabase query error:", error);
         throw error;
       }
 
       if (productsData && Array.isArray(productsData) && productsData.length > 0) {
+        console.log("Products needing reordering:", productsData);
         // Convert API data to our display format
         const formattedProducts: ReorderProduct[] = productsData.map((product: any) => ({
           id: product.id || Math.floor(Math.random() * 1000),
@@ -128,6 +131,7 @@ const Reorder = () => {
           setRecentPurchaseOrders([]);
         }
       } else {
+        console.log("No products need reordering");
         // No products need reordering
         setReorderProducts([]);
         setRecentPurchaseOrders([]);

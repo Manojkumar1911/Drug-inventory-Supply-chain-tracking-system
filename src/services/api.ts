@@ -158,7 +158,7 @@ export const fetchProductsToReorder = async () => {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .lte('quantity', supabase.raw('reorder_level'));
+      .lte('quantity', 'reorder_level');
       
     if (error) {
       throw error;

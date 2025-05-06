@@ -23,6 +23,31 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
     handleUpload(selectedFile);
   };
 
+  // Helper function to format dates correctly
+  const formatDateString = (dateStr: string): string | null => {
+    if (!dateStr) return null;
+    
+    // Check if the date is in format DD-MM-YYYY
+    const dateParts = dateStr.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);
+    if (dateParts) {
+      // Convert to ISO format YYYY-MM-DD
+      const [_, day, month, year] = dateParts;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    
+    try {
+      // Try to parse as a valid date
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0]; // Convert to YYYY-MM-DD
+      }
+    } catch (e) {
+      console.error("Error parsing date:", e);
+    }
+    
+    return null;
+  };
+
   const handleUpload = async (selectedFile: File) => {
     setUploading(true);
     setUploadProgress(0);
@@ -89,6 +114,9 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
           row[header] = values[index];
         });
         
+        // Format expiry date properly
+        const expiryDate = row.expiry_date ? formatDateString(row.expiry_date) : null;
+        
         // Map CSV fields to your Product model
         const productData = {
           name: row.name,
@@ -97,11 +125,12 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
           quantity: parseInt(row.quantity) || 0,
           unit: row.unit || 'unit',
           location: row.location || 'Main',
-          expiry_date: row.expiry_date ? new Date(row.expiry_date).toISOString() : null,
+          expiry_date: expiryDate,
           reorder_level: parseInt(row.reorder_level) || 10,
           manufacturer: row.manufacturer || null
         };
         
+        console.log("Processing product:", productData.name, "with expiry date:", expiryDate, "from original:", row.expiry_date);
         productsToInsert.push(productData);
       }
       
