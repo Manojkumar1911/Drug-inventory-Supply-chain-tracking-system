@@ -20,6 +20,17 @@ export const initProductRoutes = (pool: Pool) => {
   return router;
 };
 
+// Get products that need to be reordered
+// Important: Place this route before the '/:id' route to avoid conflicts
+router.get('/reorder', async (_req: Request, res: Response) => {
+  try {
+    const products = await productModel.findProductsToReorder();
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching products to reorder', error });
+  }
+});
+
 // Get all products
 router.get('/', async (_req: Request, res: Response) => {
   try {
@@ -48,9 +59,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const product = await productModel.create(req.body);
-    res.json(product);
+    res.status(201).json(product);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error creating product', error });
+    return;
   }
 });
 
@@ -63,8 +76,10 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     res.json(product);
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error updating product', error });
+    return;
   }
 });
 
@@ -75,18 +90,10 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
     // Marking as inactive rather than deleting
     await productModel.update(parseInt(id), { quantity: 0, reorder_level: 0 });
     res.status(204).send();
+    return;
   } catch (error) {
     res.status(500).json({ message: 'Error deleting product', error });
-  }
-});
-
-// Get products that need to be reordered - fix route registration
-router.get('/reorder', async (_req: Request, res: Response) => {
-  try {
-    const products = await productModel.findProductsToReorder();
-    res.json(products);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching products to reorder', error });
+    return;
   }
 });
 
@@ -138,18 +145,22 @@ router.post('/upload', authenticateToken, multerUpload.single('file'), async (re
             productsAdded,
             count: productsAdded 
           });
+          return;
         } catch (error) {
           console.error('Error processing CSV rows:', error);
           res.status(500).json({ message: 'Error processing CSV data', error });
+          return;
         }
       })
       .on('error', (error: any) => {
         console.error('CSV parsing error:', error);
         res.status(500).json({ message: 'Error processing CSV file', error });
+        return;
       });
   } catch (error) {
     console.error('CSV import error:', error);
     res.status(500).json({ message: 'Error processing CSV file', error });
+    return;
   }
 });
 

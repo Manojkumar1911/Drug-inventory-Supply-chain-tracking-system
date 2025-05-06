@@ -1,13 +1,11 @@
 
-import React, { useState, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { motion } from "framer-motion";
+import React, { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CheckCircle2, FileText, Upload, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import UploadForm from "./csv-upload/UploadForm";
+import UploadProgress from "./csv-upload/UploadProgress";
+import UploadSuccess from "./csv-upload/UploadSuccess";
 
 interface CsvUploadDialogProps {
   open: boolean;
@@ -16,64 +14,21 @@ interface CsvUploadDialogProps {
 
 const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange }) => {
   const [file, setFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
+  const handleFileSelect = (selectedFile: File) => {
+    setFile(selectedFile);
+    handleUpload(selectedFile);
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    setErrorMessage(null);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const droppedFile = e.dataTransfer.files[0];
-      if (droppedFile.type === "text/csv" || droppedFile.name.endsWith('.csv')) {
-        setFile(droppedFile);
-      } else {
-        setErrorMessage("Please upload a CSV file");
-        toast.error("Please upload a CSV file");
-      }
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setErrorMessage(null);
-    if (e.target.files && e.target.files.length > 0) {
-      const selectedFile = e.target.files[0];
-      if (selectedFile.type === "text/csv" || selectedFile.name.endsWith('.csv')) {
-        setFile(selectedFile);
-      } else {
-        setErrorMessage("Please upload a CSV file");
-        toast.error("Please upload a CSV file");
-      }
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!file) {
-      setErrorMessage("Please select a CSV file first");
-      return;
-    }
-    
-    setErrorMessage(null);
+  const handleUpload = async (selectedFile: File) => {
     setUploading(true);
     setUploadProgress(0);
     
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', selectedFile);
     
     try {
       // Simulate progress
@@ -112,9 +67,7 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
           
           // After 2 seconds, reset and close
           setTimeout(() => {
-            setFile(null);
-            setUploadComplete(false);
-            setUploading(false);
+            resetUpload();
             onOpenChange(false);
             window.location.reload(); // Refresh the page to show new data
           }, 2000);
@@ -126,10 +79,8 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
     } catch (error) {
       console.error('Error uploading file:', error);
       const message = error instanceof Error ? error.message : "Failed to upload file";
-      setErrorMessage(message);
       toast.error(message);
-      setUploading(false);
-      setUploadProgress(0);
+      resetUpload();
     }
   };
 
@@ -138,7 +89,6 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
     setUploadProgress(0);
     setUploading(false);
     setUploadComplete(false);
-    setErrorMessage(null);
   };
 
   return (
@@ -157,123 +107,19 @@ const CsvUploadDialog: React.FC<CsvUploadDialogProps> = ({ open, onOpenChange })
         </DialogHeader>
         
         {!uploading && !uploadComplete ? (
-          <div 
-            className={`mt-4 p-8 border-2 border-dashed rounded-lg text-center ${
-              isDragging ? 'border-primary bg-primary/5' : errorMessage ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="space-y-4">
-              <div className="flex justify-center">
-                <FileText className={`w-12 h-12 ${errorMessage ? 'text-red-500' : 'text-muted-foreground'}`} />
-              </div>
-              
-              <div>
-                <p className={`text-sm font-medium ${errorMessage ? 'text-red-500' : ''}`}>
-                  {file ? file.name : "Drag and drop your CSV file here"}
-                </p>
-                {!file && !errorMessage && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    or click to browse
-                  </p>
-                )}
-                
-                {errorMessage && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errorMessage}
-                  </p>
-                )}
-              </div>
-              
-              {!file && (
-                <Button
-                  variant={errorMessage ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="mt-2"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Browse Files
-                </Button>
-              )}
-              
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept=".csv"
-                onChange={handleFileChange}
-              />
-            </div>
-          </div>
+          <UploadForm 
+            onFileSelect={handleFileSelect} 
+            onCancel={() => onOpenChange(false)} 
+          />
+        ) : uploadComplete ? (
+          <UploadSuccess />
         ) : (
-          <div className="mt-6 space-y-6">
-            {uploadComplete ? (
-              <motion.div 
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="flex flex-col items-center justify-center p-6"
-              >
-                <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <CheckCircle2 className="w-16 h-16 text-green-500" />
-                </motion.div>
-                <h3 className="mt-4 text-xl font-medium">Upload Complete!</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your CSV file has been successfully processed
-                </p>
-              </motion.div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <Label>Uploading {file?.name}</Label>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} />
-                </div>
-                
-                <p className="text-xs text-muted-foreground">
-                  Please wait while your file is being processed...
-                </p>
-              </>
-            )}
-          </div>
+          <UploadProgress 
+            fileName={file?.name || ''} 
+            progress={uploadProgress} 
+            onCancel={resetUpload} 
+          />
         )}
-        
-        <DialogFooter className="gap-2 sm:gap-0">
-          {!uploading && !uploadComplete && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={uploading}
-              >
-                <X className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
-              
-              {file && (
-                <Button type="button" onClick={handleUpload} disabled={!file || uploading}>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload
-                </Button>
-              )}
-            </>
-          )}
-          
-          {uploading && !uploadComplete && (
-            <Button type="button" variant="outline" onClick={resetUpload}>
-              Cancel Upload
-            </Button>
-          )}
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
