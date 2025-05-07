@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
 
@@ -15,9 +14,9 @@ const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
 const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER") || "";
 
-// Default contact for testing - now using the user-provided values
+// Default contact for testing
 const DEFAULT_EMAIL = "manojinsta19@gmail.com";
-const DEFAULT_PHONE = "+919600943274"; // Adding the country code to fix Twilio error
+const DEFAULT_PHONE = "+919600943274"; // Adding the country code for Twilio
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +24,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// This function sends an email notification using Resend
+// This function sends an email notification using Resend with rate limiting
 async function sendEmailNotification(recipient: string, subject: string, body: string) {
   if (!RESEND_API_KEY) {
     console.error("RESEND_API_KEY not configured");
@@ -35,6 +34,9 @@ async function sendEmailNotification(recipient: string, subject: string, body: s
   try {
     console.log(`Attempting to send email to: ${recipient}`);
     
+    // Add delay to prevent rate limiting (Resend allows 2 requests per second)
+    await new Promise(resolve => setTimeout(resolve, 600)); // 600ms delay
+    
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -42,7 +44,7 @@ async function sendEmailNotification(recipient: string, subject: string, body: s
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "PharmInventory <alerts@resend.dev>",
+        from: "PharmInventory <onboarding@resend.dev>", // Using Resend's default domain to avoid validation error
         to: recipient || DEFAULT_EMAIL,
         subject: subject,
         html: body,
@@ -50,8 +52,14 @@ async function sendEmailNotification(recipient: string, subject: string, body: s
     });
 
     const data = await response.json();
+    
+    if (!response.ok) {
+      console.error("Email sending failed:", data);
+      return { success: false, error: data.message || "Failed to send email" };
+    }
+    
     console.log("Email response:", data);
-    return { success: response.ok, data };
+    return { success: true, data };
   } catch (error) {
     console.error("Failed to send email:", error);
     return { success: false, error };
@@ -123,7 +131,7 @@ async function notifyLowStockProducts() {
     const { data: lowStockProducts, error } = await supabase
       .from("products")
       .select("*, suppliers(email, phone_number, name)")
-      .lt("quantity", "reorder_level");
+      .lt("quantity", supabase.raw("reorder_level")); // Fix: Using raw SQL to compare columns
 
     if (error) throw error;
 
@@ -164,41 +172,17 @@ async function notifyLowStockProducts() {
         `;
         const smsMessage = `ALERT: ${product.name} (SKU: ${product.sku}) is below reorder level. Current qty: ${product.quantity} ${product.unit}. Location: ${product.location}`;
 
-        // Get supplier information if available
-        let emailResult = { success: false, error: "No recipient email found" };
-        let smsResult = { success: false, error: "No recipient phone found" };
-
         // Send to default contact for testing
-        emailResult = await sendEmailNotification(
+        const emailResult = await sendEmailNotification(
           DEFAULT_EMAIL,
           subject,
           emailBody
         );
           
-        smsResult = await sendSmsNotification(
+        const smsResult = await sendSmsNotification(
           DEFAULT_PHONE,
           smsMessage
         );
-
-        // Send notifications to the supplier if available
-        if (product.manufacturer && product.suppliers) {
-          const supplier = product.suppliers;
-          
-          if (supplier.email) {
-            emailResult = await sendEmailNotification(
-              supplier.email,
-              subject,
-              emailBody
-            );
-          }
-          
-          if (supplier.phone_number) {
-            smsResult = await sendSmsNotification(
-              supplier.phone_number,
-              smsMessage
-            );
-          }
-        }
 
         return {
           product: product.name,
@@ -238,7 +222,7 @@ async function recommendInventoryTransfers() {
     const { data: lowStockProducts, error: productError } = await supabase
       .from("products")
       .select("*")
-      .lt("quantity", "reorder_level");
+      .lt("quantity", supabase.raw("reorder_level"));
     
     if (productError) throw productError;
     
@@ -256,7 +240,7 @@ async function recommendInventoryTransfers() {
         .select("*")
         .eq("name", product.name)
         .neq("location", product.location)
-        .gt("quantity", "reorder_level");
+        .gt("quantity", supabase.raw("reorder_level"));
       
       if (excessError) throw excessError;
       
@@ -294,95 +278,66 @@ async function recommendInventoryTransfers() {
             status: "New"
           }]);
           
-          // Send email notifications to location managers
-          const fromLocationData = locations.find(l => l.name === excessProduct.location);
-          const toLocationData = locations.find(l => l.name === product.location);
+          // Add delays between email notifications to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
           
-          if (fromLocationData && toLocationData) {
-            // Get location manager emails
-            const { data: fromLocationDetails } = await supabase
-              .from("locations")
-              .select("manager, email")
-              .eq("id", fromLocationData.id)
-              .single();
-              
-            const { data: toLocationDetails } = await supabase
-              .from("locations")
-              .select("manager, email")
-              .eq("id", toLocationData.id)
-              .single();
+          // Send email notification
+          await sendEmailNotification(
+            DEFAULT_EMAIL,
+            `Inventory Transfer Request: ${product.name}`,
+            `
+            <h2>Inventory Transfer Request</h2>
+            <p>A transfer of inventory has been recommended:</p>
+            <ul>
+              <li><strong>Product:</strong> ${product.name}</li>
+              <li><strong>Quantity:</strong> ${recommendedTransferQty} ${product.unit}</li>
+              <li><strong>From Location:</strong> ${excessProduct.location}</li>
+              <li><strong>To Location:</strong> ${product.location}</li>
+              <li><strong>Priority:</strong> ${product.quantity === 0 ? "Urgent" : "Normal"}</li>
+            </ul>
+            <p>Please coordinate this transfer with the receiving location.</p>
+            `
+          );
+          
+          // Add delay between emails
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          await sendEmailNotification(
+            DEFAULT_EMAIL,
+            `Incoming Inventory Transfer: ${product.name}`,
+            `
+            <h2>Incoming Inventory Transfer</h2>
+            <p>A transfer of inventory to your location has been recommended:</p>
+            <ul>
+              <li><strong>Product:</strong> ${product.name}</li>
+              <li><strong>Quantity:</strong> ${recommendedTransferQty} ${product.unit}</li>
+              <li><strong>From Location:</strong> ${excessProduct.location}</li>
+              <li><strong>To Location:</strong> ${product.location}</li>
+              <li><strong>Priority:</strong> ${product.quantity === 0 ? "Urgent" : "Normal"}</li>
+            </ul>
+            <p>The sending location has been notified. Please follow up to confirm this transfer.</p>
+            `
+          );
+          
+          // Add delay between emails
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Send to location managers if available
+          if (product.manufacturer && product.suppliers) {
+            const supplier = product.suppliers;
             
-            // Send email notifications to test email
-            await sendEmailNotification(
-              DEFAULT_EMAIL,
-              `Inventory Transfer Request: ${product.name}`,
-              `
-              <h2>Inventory Transfer Request</h2>
-              <p>A transfer of inventory has been recommended:</p>
-              <ul>
-                <li><strong>Product:</strong> ${product.name}</li>
-                <li><strong>Quantity:</strong> ${recommendedTransferQty} ${product.unit}</li>
-                <li><strong>From Location:</strong> ${excessProduct.location}</li>
-                <li><strong>To Location:</strong> ${product.location}</li>
-                <li><strong>Priority:</strong> ${product.quantity === 0 ? "Urgent" : "Normal"}</li>
-              </ul>
-              <p>Please coordinate this transfer with the receiving location.</p>
-              `
-            );
-              
-            await sendEmailNotification(
-              DEFAULT_EMAIL,
-              `Incoming Inventory Transfer: ${product.name}`,
-              `
-              <h2>Incoming Inventory Transfer</h2>
-              <p>A transfer of inventory to your location has been recommended:</p>
-              <ul>
-                <li><strong>Product:</strong> ${product.name}</li>
-                <li><strong>Quantity:</strong> ${recommendedTransferQty} ${product.unit}</li>
-                <li><strong>From Location:</strong> ${excessProduct.location}</li>
-                <li><strong>To Location:</strong> ${product.location}</li>
-                <li><strong>Priority:</strong> ${product.quantity === 0 ? "Urgent" : "Normal"}</li>
-              </ul>
-              <p>The sending location has been notified. Please follow up to confirm this transfer.</p>
-              `
-            );
-            
-            // Send to location managers if available
-            if (fromLocationDetails?.email) {
+            if (supplier.email) {
               await sendEmailNotification(
-                fromLocationDetails.email,
-                `Inventory Transfer Request: ${product.name}`,
-                `
-                <h2>Inventory Transfer Request</h2>
-                <p>A transfer of inventory has been recommended:</p>
-                <ul>
-                  <li><strong>Product:</strong> ${product.name}</li>
-                  <li><strong>Quantity:</strong> ${recommendedTransferQty} ${product.unit}</li>
-                  <li><strong>From Location:</strong> ${excessProduct.location}</li>
-                  <li><strong>To Location:</strong> ${product.location}</li>
-                  <li><strong>Priority:</strong> ${product.quantity === 0 ? "Urgent" : "Normal"}</li>
-                </ul>
-                <p>Please coordinate this transfer with the receiving location.</p>
-                `
+                supplier.email,
+                subject,
+                emailBody
               );
             }
             
-            if (toLocationDetails?.email) {
-              await sendEmailNotification(
-                toLocationDetails.email,
-                `Incoming Inventory Transfer: ${product.name}`,
-                `
-                <h2>Incoming Inventory Transfer</h2>
-                <p>A transfer of inventory to your location has been recommended:</p>
-                <ul>
-                  <li><strong>Product:</strong> ${product.name}</li>
-                  <li><strong>Quantity:</strong> ${recommendedTransferQty} ${product.unit}</li>
-                  <li><strong>From Location:</strong> ${excessProduct.location}</li>
-                  <li><strong>To Location:</strong> ${product.location}</li>
-                  <li><strong>Priority:</strong> ${product.quantity === 0 ? "Urgent" : "Normal"}</li>
-                </ul>
-                <p>The sending location has been notified. Please follow up to confirm this transfer.</p>
-                `
+            if (supplier.phone_number) {
+              await sendSmsNotification(
+                supplier.phone_number,
+                smsMessage
               );
             }
           }
@@ -426,74 +381,59 @@ async function checkExpiringProducts() {
 
     console.log(`Found ${expiringProducts.length} products expiring soon`);
 
-    // Process each expiring product
-    const notificationResults = await Promise.all(
-      expiringProducts.map(async (product) => {
-        const expiryDate = new Date(product.expiry_date);
-        const daysUntilExpiry = Math.ceil(
-          (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-        );
+    // Process each expiring product with delays
+    const notificationResults = [];
+    
+    for (const product of expiringProducts) {
+      const expiryDate = new Date(product.expiry_date);
+      const daysUntilExpiry = Math.ceil(
+        (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      );
 
-        // Create an alert record in the database
-        await createAlertInDatabase(product, daysUntilExpiry);
+      // Create an alert record in the database
+      await createAlertInDatabase(product, daysUntilExpiry);
 
-        // Define notification messages
-        const subject = `Product Expiring Soon: ${product.name}`;
-        const emailBody = `
-          <h2>Product Expiration Alert</h2>
-          <p>This is an automated notification to inform you that the following product will expire soon:</p>
-          <ul>
-            <li><strong>Product Name:</strong> ${product.name}</li>
-            <li><strong>SKU:</strong> ${product.sku}</li>
-            <li><strong>Expiry Date:</strong> ${new Date(product.expiry_date).toLocaleDateString()}</li>
-            <li><strong>Days Until Expiry:</strong> ${daysUntilExpiry}</li>
-            <li><strong>Current Quantity:</strong> ${product.quantity} ${product.unit}</li>
-            <li><strong>Location:</strong> ${product.location}</li>
-          </ul>
-          <p>Please take appropriate action.</p>
-        `;
-        const smsMessage = `ALERT: ${product.name} (SKU: ${product.sku}) will expire in ${daysUntilExpiry} days. Current qty: ${product.quantity} ${product.unit}. Location: ${product.location}`;
+      // Define notification messages
+      const subject = `Product Expiring Soon: ${product.name}`;
+      const emailBody = `
+        <h2>Product Expiration Alert</h2>
+        <p>This is an automated notification to inform you that the following product will expire soon:</p>
+        <ul>
+          <li><strong>Product Name:</strong> ${product.name}</li>
+          <li><strong>SKU:</strong> ${product.sku}</li>
+          <li><strong>Expiry Date:</strong> ${new Date(product.expiry_date).toLocaleDateString()}</li>
+          <li><strong>Days Until Expiry:</strong> ${daysUntilExpiry}</li>
+          <li><strong>Current Quantity:</strong> ${product.quantity} ${product.unit}</li>
+          <li><strong>Location:</strong> ${product.location}</li>
+        </ul>
+        <p>Please take appropriate action.</p>
+      `;
+      const smsMessage = `ALERT: ${product.name} (SKU: ${product.sku}) will expire in ${daysUntilExpiry} days. Current qty: ${product.quantity} ${product.unit}. Location: ${product.location}`;
 
-        // Send to default contact for testing
-        const emailResult = await sendEmailNotification(
-          DEFAULT_EMAIL,
-          subject,
-          emailBody
-        );
-          
-        const smsResult = await sendSmsNotification(
-          DEFAULT_PHONE,
-          smsMessage
-        );
+      // Add delays between sending emails/SMS to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Send to default contact for testing
+      const emailResult = await sendEmailNotification(
+        DEFAULT_EMAIL,
+        subject,
+        emailBody
+      );
+        
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const smsResult = await sendSmsNotification(
+        DEFAULT_PHONE,
+        smsMessage
+      );
 
-        // Send notifications to the supplier if available
-        if (product.manufacturer && product.suppliers) {
-          const supplier = product.suppliers;
-          
-          if (supplier.email) {
-            await sendEmailNotification(
-              supplier.email,
-              subject,
-              emailBody
-            );
-          }
-          
-          if (supplier.phone_number) {
-            await sendSmsNotification(
-              supplier.phone_number,
-              smsMessage
-            );
-          }
-        }
-
-        return {
-          product: product.name,
-          daysUntilExpiry,
-          emailSent: emailResult.success,
-          smsSent: smsResult.success,
-        };
-      })
-    );
+      notificationResults.push({
+        product: product.name,
+        daysUntilExpiry,
+        emailSent: emailResult.success,
+        smsSent: smsResult.success,
+      });
+    }
 
     return {
       success: true,
@@ -542,9 +482,11 @@ serve(async (req) => {
         break;
       case "all":
       default:
-        // Run all checks
+        // Run checks sequentially with delays to avoid rate limiting
         const expiryResult = await checkExpiringProducts();
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay
         const stockResult = await notifyLowStockProducts();
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay
         const transfersResult = await recommendInventoryTransfers();
         
         result = {
