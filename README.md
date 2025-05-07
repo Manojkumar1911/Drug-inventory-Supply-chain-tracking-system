@@ -1,11 +1,11 @@
 
 # PharmInventory - Pharmaceutical Inventory Management System
 
+![PharmInventory Dashboard](https://via.placeholder.com/1200x600?text=PharmInventory+Dashboard)
+
 ## Overview
 
 PharmInventory is a comprehensive inventory management system designed specifically for pharmaceutical companies. It provides real-time alerts, transfer tracking between locations, analytics reporting, and user management with role-based access control.
-
-![PharmInventory Dashboard](https://via.placeholder.com/1200x600?text=PharmInventory+Dashboard)
 
 ## Key Features
 
@@ -30,6 +30,7 @@ PharmInventory is a comprehensive inventory management system designed specifica
 - **Intuitive Navigation**: Easy-to-use sidebar for quick access to features
 - **Visual Dashboards**: At-a-glance view of critical inventory metrics
 - **Search & Filter**: Quickly find products and transactions
+- **Interactive UI Elements**: Animations, transitions, and visual feedback enhance the user experience
 
 ## Technology Stack
 
@@ -106,6 +107,7 @@ The system uses Resend for email notifications and Twilio for SMS alerts:
    - Create an account at [Resend](https://resend.com)
    - Get your API key from the dashboard
    - Add it to your environment variables as `RESEND_API_KEY`
+   - Verify your domain for sending emails
 
 2. **Twilio Setup**:
    - Create an account at [Twilio](https://www.twilio.com)
@@ -137,6 +139,19 @@ The system uses Resend for email notifications and Twilio for SMS alerts:
 - Configure alert thresholds in settings
 - Add recipients for email and SMS notifications
 - View alert history in the Alerts page
+
+## UI Features and Animations
+
+PharmInventory includes numerous UI enhancements for a polished user experience:
+
+- **Button Hover Effects**: Subtle glow and sparkle effects on hover
+- **Card Animations**: Elevation and shadow changes on interaction
+- **Loading Indicators**: Animated spinners and progress bars
+- **Toast Notifications**: Slide-in notifications for user feedback
+- **Gradient Backgrounds**: Subtle color transitions for visual hierarchy
+- **Animated Icons**: Subtle movements draw attention to important features
+- **Transition Effects**: Smooth page and component transitions
+- **Interactive Components**: Feedback on user actions
 
 ## Contributing
 

@@ -15,9 +15,9 @@ const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
 const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER") || "";
 
-// Default contact for testing
+// Default contact for testing - now using the user-provided values
 const DEFAULT_EMAIL = "manojinsta19@gmail.com";
-const DEFAULT_PHONE = "9600943274";
+const DEFAULT_PHONE = "+919600943274"; // Adding the country code to fix Twilio error
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,6 +33,8 @@ async function sendEmailNotification(recipient: string, subject: string, body: s
   }
 
   try {
+    console.log(`Attempting to send email to: ${recipient}`);
+    
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -40,7 +42,7 @@ async function sendEmailNotification(recipient: string, subject: string, body: s
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Drug Inventory System <inventory-alerts@yourdomain.com>",
+        from: "PharmInventory <alerts@resend.dev>",
         to: recipient || DEFAULT_EMAIL,
         subject: subject,
         html: body,
@@ -48,7 +50,7 @@ async function sendEmailNotification(recipient: string, subject: string, body: s
     });
 
     const data = await response.json();
-    console.log("Email sent:", data);
+    console.log("Email response:", data);
     return { success: response.ok, data };
   } catch (error) {
     console.error("Failed to send email:", error);
@@ -64,6 +66,8 @@ async function sendSmsNotification(phoneNumber: string, message: string) {
   }
 
   try {
+    console.log(`Attempting to send SMS to: ${phoneNumber}`);
+    
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
     const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
 
@@ -82,7 +86,7 @@ async function sendSmsNotification(phoneNumber: string, message: string) {
     });
 
     const data = await response.json();
-    console.log("SMS sent:", data);
+    console.log("SMS response:", data);
     return { success: response.ok, data };
   } catch (error) {
     console.error("Failed to send SMS:", error);
@@ -119,7 +123,7 @@ async function notifyLowStockProducts() {
     const { data: lowStockProducts, error } = await supabase
       .from("products")
       .select("*, suppliers(email, phone_number, name)")
-      .lt("quantity", supabase.raw("products.reorder_level"));
+      .lt("quantity", "reorder_level");
 
     if (error) throw error;
 
@@ -234,7 +238,7 @@ async function recommendInventoryTransfers() {
     const { data: lowStockProducts, error: productError } = await supabase
       .from("products")
       .select("*")
-      .lt("quantity", supabase.raw("products.reorder_level"));
+      .lt("quantity", "reorder_level");
     
     if (productError) throw productError;
     
@@ -252,7 +256,7 @@ async function recommendInventoryTransfers() {
         .select("*")
         .eq("name", product.name)
         .neq("location", product.location)
-        .gt("quantity", supabase.raw("products.reorder_level + 10")); // Has excess of at least 10 over reorder level
+        .gt("quantity", "reorder_level");
       
       if (excessError) throw excessError;
       

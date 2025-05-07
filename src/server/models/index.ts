@@ -10,7 +10,7 @@ import TransferModel from './Transfer';
 import SettingsModel from './Settings';
 
 // This factory function creates all our models with a shared pool
-export function createModels(pool: Pool) {
+export function createModels(pool: typeof Pool) {
   return {
     Alert: new AlertModel(pool),
     Location: new LocationModel(pool),

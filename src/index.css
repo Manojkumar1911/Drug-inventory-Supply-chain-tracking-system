@@ -73,7 +73,7 @@
     }
     50% {
       transform: scale(1);
-      opacity: 0.5;
+      opacity: 0.8;
     }
     100% {
       transform: scale(0);
@@ -92,12 +92,28 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+    background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
     opacity: 0;
   }
   
   .animate-sparkle:hover::before {
     animation: sparkle 1.5s infinite;
+  }
+
+  /* Button pulse effect */
+  @keyframes pulse-effect {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 0.85;
+    }
+  }
+
+  .btn-pulse-effect:hover {
+    animation: pulse-effect 1.5s infinite;
   }
   
   /* Button click effect */
@@ -113,6 +129,22 @@
   /* Badge pulse effect */
   .badge-pulse {
     @apply animate-pulse;
+  }
+
+  /* Shimmering effect for cards */
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
+    background-size: 1000px 100%;
+    animation: shimmer 3s infinite linear;
   }
 }
 
@@ -142,6 +174,18 @@
   box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
 }
 
+.shadow-glow-yellow {
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
+}
+
+.shadow-glow-green {
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+}
+
+.shadow-glow-purple {
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+}
+
 /* Gradient text */
 .gradient-text {
   @apply bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent;
@@ -154,4 +198,76 @@
 
 .hover-scale {
   @apply transition-transform hover:scale-105 duration-300;
+}
+
+/* Rotating animation */
+@keyframes rotate-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-rotate-slow {
+  animation: rotate-slow 8s linear infinite;
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Animated border */
+@keyframes border-pulse {
+  0%, 100% {
+    border-color: rgba(124, 58, 237, 0.3);
+  }
+  50% {
+    border-color: rgba(124, 58, 237, 0.8);
+  }
+}
+
+.animate-border {
+  animation: border-pulse 2s infinite;
+}
+
+/* Background subtle animation */
+@keyframes subtle-bg-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-bg {
+  background-size: 200% 200%;
+  animation: subtle-bg-shift 5s ease infinite;
+}
+
+/* Card flip effect */
+.card-3d {
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.card-3d:hover .card-inner {
+  transform: rotateY(10deg);
+}
+
+.card-inner {
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
 }
