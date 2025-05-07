@@ -108,7 +108,246 @@ async function createAlertInDatabase(product: any, daysUntilExpiry: number) {
   }
 }
 
-// This is the main function that checks for expiring products
+// This function handles notifications for low stock products
+async function notifyLowStockProducts() {
+  try {
+    // Find products with quantity below reorder level
+    const { data: lowStockProducts, error } = await supabase
+      .from("products")
+      .select("*, suppliers(email, phone_number, name)")
+      .lt("quantity", supabase.raw("reorder_level"));
+
+    if (error) throw error;
+
+    if (!lowStockProducts || lowStockProducts.length === 0) {
+      return { success: true, message: "No low stock products found" };
+    }
+
+    console.log(`Found ${lowStockProducts.length} low stock products`);
+
+    // Process each low stock product
+    const notificationResults = await Promise.all(
+      lowStockProducts.map(async (product) => {
+        // Create an alert record in the database
+        await supabase.from("alerts").insert([
+          {
+            title: `Low Stock Alert: ${product.name}`,
+            description: `${product.name} (SKU: ${product.sku}) is below reorder level. Current quantity: ${product.quantity}, Reorder Level: ${product.reorder_level}`,
+            severity: product.quantity === 0 ? "critical" : "high",
+            category: "Stock",
+            location: product.location,
+            status: "New",
+          },
+        ]);
+
+        // Define notification messages
+        const subject = `Low Stock Alert: ${product.name}`;
+        const emailBody = `
+          <h2>Low Stock Alert</h2>
+          <p>This is an automated notification to inform you that the following product is below reorder level:</p>
+          <ul>
+            <li><strong>Product Name:</strong> ${product.name}</li>
+            <li><strong>SKU:</strong> ${product.sku}</li>
+            <li><strong>Current Quantity:</strong> ${product.quantity} ${product.unit}</li>
+            <li><strong>Reorder Level:</strong> ${product.reorder_level} ${product.unit}</li>
+            <li><strong>Location:</strong> ${product.location}</li>
+          </ul>
+          <p>Please take appropriate action to reorder this product.</p>
+        `;
+        const smsMessage = `ALERT: ${product.name} (SKU: ${product.sku}) is below reorder level. Current qty: ${product.quantity} ${product.unit}. Location: ${product.location}`;
+
+        // Get supplier information if available
+        let emailResult = { success: false, error: "No recipient email found" };
+        let smsResult = { success: false, error: "No recipient phone found" };
+
+        // Send notifications to the supplier if available
+        if (product.manufacturer && product.suppliers) {
+          const supplier = product.suppliers;
+          
+          if (supplier.email) {
+            emailResult = await sendEmailNotification(
+              supplier.email,
+              subject,
+              emailBody
+            );
+          }
+          
+          if (supplier.phone_number) {
+            smsResult = await sendSmsNotification(
+              supplier.phone_number,
+              smsMessage
+            );
+          }
+        }
+
+        return {
+          product: product.name,
+          emailSent: emailResult.success,
+          smsSent: smsResult.success,
+        };
+      })
+    );
+
+    return {
+      success: true,
+      message: `Processed ${lowStockProducts.length} low stock products`,
+      results: notificationResults,
+    };
+  } catch (error) {
+    console.error("Error checking low stock products:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+// This function handles inter-inventory transfer recommendations
+async function recommendInventoryTransfers() {
+  try {
+    // Get all locations
+    const { data: locations, error: locationError } = await supabase
+      .from("locations")
+      .select("name, id")
+      .eq("is_active", true);
+    
+    if (locationError) throw locationError;
+    
+    if (!locations || locations.length < 2) {
+      return { success: true, message: "Not enough locations for transfers" };
+    }
+    
+    // Get all low stock products
+    const { data: lowStockProducts, error: productError } = await supabase
+      .from("products")
+      .select("*")
+      .lt("quantity", supabase.raw("reorder_level"));
+    
+    if (productError) throw productError;
+    
+    if (!lowStockProducts || lowStockProducts.length === 0) {
+      return { success: true, message: "No low stock products for transfer" };
+    }
+    
+    // For each low stock product, check if other locations have excess stock
+    const transferRecommendations = [];
+    
+    for (const product of lowStockProducts) {
+      // Find products with same name/SKU at other locations with excess stock
+      const { data: excessProducts, error: excessError } = await supabase
+        .from("products")
+        .select("*")
+        .eq("name", product.name)
+        .neq("location", product.location)
+        .gt("quantity", supabase.raw("reorder_level + 10")); // Has excess of at least 10 over reorder level
+      
+      if (excessError) throw excessError;
+      
+      if (excessProducts && excessProducts.length > 0) {
+        // Sort by highest excess quantity
+        excessProducts.sort((a, b) => 
+          (b.quantity - b.reorder_level) - (a.quantity - a.reorder_level)
+        );
+        
+        const excessProduct = excessProducts[0];
+        const recommendedTransferQty = Math.min(
+          excessProduct.quantity - excessProduct.reorder_level - 5, // Leave buffer of 5
+          product.reorder_level - product.quantity + 5 // Request enough to be above reorder + small buffer
+        );
+        
+        if (recommendedTransferQty > 0) {
+          // Create a transfer recommendation
+          transferRecommendations.push({
+            product_id: product.id,
+            product_name: product.name,
+            from_location: excessProduct.location,
+            to_location: product.location,
+            quantity: recommendedTransferQty,
+            priority: product.quantity === 0 ? "Urgent" : "Normal",
+            status: "Recommended"
+          });
+          
+          // Create alert for the recommendation
+          await supabase.from("alerts").insert([{
+            title: `Transfer Recommendation: ${product.name}`,
+            description: `${recommendedTransferQty} ${product.unit} of ${product.name} should be transferred from ${excessProduct.location} to ${product.location}`,
+            severity: product.quantity === 0 ? "high" : "medium",
+            category: "Transfer",
+            location: product.location,
+            status: "New"
+          }]);
+          
+          // Send email notifications to location managers
+          const fromLocationData = locations.find(l => l.name === excessProduct.location);
+          const toLocationData = locations.find(l => l.name === product.location);
+          
+          if (fromLocationData && toLocationData) {
+            // Get location manager emails
+            const { data: fromLocationDetails } = await supabase
+              .from("locations")
+              .select("manager, email")
+              .eq("id", fromLocationData.id)
+              .single();
+              
+            const { data: toLocationDetails } = await supabase
+              .from("locations")
+              .select("manager, email")
+              .eq("id", toLocationData.id)
+              .single();
+            
+            // Send email notifications if manager emails exist
+            if (fromLocationDetails?.email) {
+              await sendEmailNotification(
+                fromLocationDetails.email,
+                `Inventory Transfer Request: ${product.name}`,
+                `
+                <h2>Inventory Transfer Request</h2>
+                <p>A transfer of inventory has been recommended:</p>
+                <ul>
+                  <li><strong>Product:</strong> ${product.name}</li>
+                  <li><strong>Quantity:</strong> ${recommendedTransferQty} ${product.unit}</li>
+                  <li><strong>From Location:</strong> ${excessProduct.location}</li>
+                  <li><strong>To Location:</strong> ${product.location}</li>
+                  <li><strong>Priority:</strong> ${product.quantity === 0 ? "Urgent" : "Normal"}</li>
+                </ul>
+                <p>Please coordinate this transfer with the receiving location.</p>
+                `
+              );
+            }
+            
+            if (toLocationDetails?.email) {
+              await sendEmailNotification(
+                toLocationDetails.email,
+                `Incoming Inventory Transfer: ${product.name}`,
+                `
+                <h2>Incoming Inventory Transfer</h2>
+                <p>A transfer of inventory to your location has been recommended:</p>
+                <ul>
+                  <li><strong>Product:</strong> ${product.name}</li>
+                  <li><strong>Quantity:</strong> ${recommendedTransferQty} ${product.unit}</li>
+                  <li><strong>From Location:</strong> ${excessProduct.location}</li>
+                  <li><strong>To Location:</strong> ${product.location}</li>
+                  <li><strong>Priority:</strong> ${product.quantity === 0 ? "Urgent" : "Normal"}</li>
+                </ul>
+                <p>The sending location has been notified. Please follow up to confirm this transfer.</p>
+                `
+              );
+            }
+          }
+        }
+      }
+    }
+    
+    return {
+      success: true,
+      message: "Transfer recommendations processed",
+      recommendationsCount: transferRecommendations.length,
+      recommendations: transferRecommendations
+    };
+  } catch (error) {
+    console.error("Error creating inventory transfer recommendations:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+// This function checks for expiring products
 async function checkExpiringProducts() {
   try {
     // Calculate the date 90 days from now
@@ -222,8 +461,37 @@ serve(async (req) => {
   }
 
   try {
-    // Run the check for expiring products
-    const result = await checkExpiringProducts();
+    // Parse request to determine which checks to run
+    const requestData = await req.json().catch(() => ({}));
+    const checkType = requestData.checkType || "all";
+    
+    let result;
+    
+    switch (checkType) {
+      case "expiry":
+        result = await checkExpiringProducts();
+        break;
+      case "stock":
+        result = await notifyLowStockProducts();
+        break;
+      case "transfers":
+        result = await recommendInventoryTransfers();
+        break;
+      case "all":
+      default:
+        // Run all checks
+        const expiryResult = await checkExpiringProducts();
+        const stockResult = await notifyLowStockProducts();
+        const transfersResult = await recommendInventoryTransfers();
+        
+        result = {
+          success: expiryResult.success && stockResult.success && transfersResult.success,
+          expiryChecks: expiryResult,
+          stockChecks: stockResult,
+          transferRecommendations: transfersResult
+        };
+        break;
+    }
     
     return new Response(JSON.stringify(result), {
       status: result.success ? 200 : 500,

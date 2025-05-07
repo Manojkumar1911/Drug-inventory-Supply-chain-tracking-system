@@ -34,6 +34,7 @@ interface Location {
   phone: string;
   status: "active" | "inactive";
   productCount: number;
+  rawData: any; // Add rawData property
 }
 
 const Locations = () => {

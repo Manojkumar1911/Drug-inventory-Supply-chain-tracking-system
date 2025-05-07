@@ -17,9 +17,15 @@ interface DeleteProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: any;
+  onSuccess?: () => void;
 }
 
-const DeleteProductDialog: React.FC<DeleteProductDialogProps> = ({ open, onOpenChange, product }) => {
+const DeleteProductDialog: React.FC<DeleteProductDialogProps> = ({ 
+  open, 
+  onOpenChange, 
+  product,
+  onSuccess
+}) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleDelete = async () => {
@@ -30,6 +36,21 @@ const DeleteProductDialog: React.FC<DeleteProductDialogProps> = ({ open, onOpenC
 
     setIsLoading(true);
     try {
+      // First check if this product is referenced in any transfers
+      const { count: transferCount, error: transferError } = await supabase
+        .from('transfers')
+        .select('id', { count: 'exact', head: true })
+        .eq('product_id', product.id);
+        
+      if (transferError) throw transferError;
+      
+      if (transferCount && transferCount > 0) {
+        toast.warning(`Cannot delete: Product is used in ${transferCount} transfers. Consider updating quantity to zero instead.`);
+        setIsLoading(false);
+        return;
+      }
+      
+      // If no transfers reference this product, proceed with deletion
       const { error } = await supabase
         .from('products')
         .delete()
@@ -38,6 +59,7 @@ const DeleteProductDialog: React.FC<DeleteProductDialogProps> = ({ open, onOpenC
       if (error) throw error;
 
       toast.success("Product deleted successfully");
+      if (onSuccess) onSuccess();
       onOpenChange(false);
     } catch (error) {
       console.error("Error deleting product:", error);

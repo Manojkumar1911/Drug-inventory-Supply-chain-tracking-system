@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +41,7 @@ import CsvUploadDialog from "@/components/dialogs/CsvUploadDialog";
 import AddProductDialog from "@/components/dialogs/AddProductDialog";
 import EditProductDialog from "@/components/dialogs/EditProductDialog";
 import DeleteProductDialog from "@/components/dialogs/DeleteProductDialog";
+import AlertActions from "@/components/alerts/AlertActions";
 
 interface Product {
   id: string;
@@ -215,11 +215,13 @@ const Products: React.FC = () => {
   const checkExpiringProducts = async () => {
     try {
       setIsLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch("https://labzxhoshhzfixlzccrw.supabase.co/functions/v1/send-alert-notifications", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${supabase.auth.session()?.access_token || ""}`
+          "Authorization": `Bearer ${session?.access_token || ""}`
         }
       });
       
@@ -267,14 +269,6 @@ const Products: React.FC = () => {
             Upload CSV
           </Button>
           <Button 
-            variant="outline"
-            className="gap-2 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 hover:from-yellow-500/20 hover:to-amber-500/20"
-            onClick={checkExpiringProducts}
-          >
-            <AlertTriangle className="h-4 w-4" />
-            Send Expiry Alerts
-          </Button>
-          <Button 
             className="gap-2 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
             onClick={() => setAddProductOpen(true)}
           >
@@ -283,6 +277,9 @@ const Products: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Add Alert Actions Component */}
+      <AlertActions className="pt-2" />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50">
