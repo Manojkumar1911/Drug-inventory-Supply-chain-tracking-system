@@ -15,6 +15,10 @@ const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
 const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER") || "";
 
+// Default contact for testing
+const DEFAULT_EMAIL = "manojinsta19@gmail.com";
+const DEFAULT_PHONE = "9600943274";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -37,7 +41,7 @@ async function sendEmailNotification(recipient: string, subject: string, body: s
       },
       body: JSON.stringify({
         from: "Drug Inventory System <inventory-alerts@yourdomain.com>",
-        to: recipient,
+        to: recipient || DEFAULT_EMAIL,
         subject: subject,
         html: body,
       }),
@@ -64,7 +68,7 @@ async function sendSmsNotification(phoneNumber: string, message: string) {
     const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
 
     const formData = new URLSearchParams();
-    formData.append("To", phoneNumber);
+    formData.append("To", phoneNumber || DEFAULT_PHONE);
     formData.append("From", TWILIO_PHONE_NUMBER);
     formData.append("Body", message);
 
@@ -115,7 +119,7 @@ async function notifyLowStockProducts() {
     const { data: lowStockProducts, error } = await supabase
       .from("products")
       .select("*, suppliers(email, phone_number, name)")
-      .lt("quantity", supabase.raw("reorder_level"));
+      .lt("quantity", supabase.raw("products.reorder_level"));
 
     if (error) throw error;
 
@@ -159,6 +163,18 @@ async function notifyLowStockProducts() {
         // Get supplier information if available
         let emailResult = { success: false, error: "No recipient email found" };
         let smsResult = { success: false, error: "No recipient phone found" };
+
+        // Send to default contact for testing
+        emailResult = await sendEmailNotification(
+          DEFAULT_EMAIL,
+          subject,
+          emailBody
+        );
+          
+        smsResult = await sendSmsNotification(
+          DEFAULT_PHONE,
+          smsMessage
+        );
 
         // Send notifications to the supplier if available
         if (product.manufacturer && product.suppliers) {
@@ -218,7 +234,7 @@ async function recommendInventoryTransfers() {
     const { data: lowStockProducts, error: productError } = await supabase
       .from("products")
       .select("*")
-      .lt("quantity", supabase.raw("reorder_level"));
+      .lt("quantity", supabase.raw("products.reorder_level"));
     
     if (productError) throw productError;
     
@@ -236,7 +252,7 @@ async function recommendInventoryTransfers() {
         .select("*")
         .eq("name", product.name)
         .neq("location", product.location)
-        .gt("quantity", supabase.raw("reorder_level + 10")); // Has excess of at least 10 over reorder level
+        .gt("quantity", supabase.raw("products.reorder_level + 10")); // Has excess of at least 10 over reorder level
       
       if (excessError) throw excessError;
       
@@ -292,7 +308,42 @@ async function recommendInventoryTransfers() {
               .eq("id", toLocationData.id)
               .single();
             
-            // Send email notifications if manager emails exist
+            // Send email notifications to test email
+            await sendEmailNotification(
+              DEFAULT_EMAIL,
+              `Inventory Transfer Request: ${product.name}`,
+              `
+              <h2>Inventory Transfer Request</h2>
+              <p>A transfer of inventory has been recommended:</p>
+              <ul>
+                <li><strong>Product:</strong> ${product.name}</li>
+                <li><strong>Quantity:</strong> ${recommendedTransferQty} ${product.unit}</li>
+                <li><strong>From Location:</strong> ${excessProduct.location}</li>
+                <li><strong>To Location:</strong> ${product.location}</li>
+                <li><strong>Priority:</strong> ${product.quantity === 0 ? "Urgent" : "Normal"}</li>
+              </ul>
+              <p>Please coordinate this transfer with the receiving location.</p>
+              `
+            );
+              
+            await sendEmailNotification(
+              DEFAULT_EMAIL,
+              `Incoming Inventory Transfer: ${product.name}`,
+              `
+              <h2>Incoming Inventory Transfer</h2>
+              <p>A transfer of inventory to your location has been recommended:</p>
+              <ul>
+                <li><strong>Product:</strong> ${product.name}</li>
+                <li><strong>Quantity:</strong> ${recommendedTransferQty} ${product.unit}</li>
+                <li><strong>From Location:</strong> ${excessProduct.location}</li>
+                <li><strong>To Location:</strong> ${product.location}</li>
+                <li><strong>Priority:</strong> ${product.quantity === 0 ? "Urgent" : "Normal"}</li>
+              </ul>
+              <p>The sending location has been notified. Please follow up to confirm this transfer.</p>
+              `
+            );
+            
+            // Send to location managers if available
             if (fromLocationDetails?.email) {
               await sendEmailNotification(
                 fromLocationDetails.email,
@@ -399,16 +450,24 @@ async function checkExpiringProducts() {
         `;
         const smsMessage = `ALERT: ${product.name} (SKU: ${product.sku}) will expire in ${daysUntilExpiry} days. Current qty: ${product.quantity} ${product.unit}. Location: ${product.location}`;
 
-        // Get supplier information if available
-        let emailResult = { success: false, error: "No recipient email found" };
-        let smsResult = { success: false, error: "No recipient phone found" };
+        // Send to default contact for testing
+        const emailResult = await sendEmailNotification(
+          DEFAULT_EMAIL,
+          subject,
+          emailBody
+        );
+          
+        const smsResult = await sendSmsNotification(
+          DEFAULT_PHONE,
+          smsMessage
+        );
 
         // Send notifications to the supplier if available
         if (product.manufacturer && product.suppliers) {
           const supplier = product.suppliers;
           
           if (supplier.email) {
-            emailResult = await sendEmailNotification(
+            await sendEmailNotification(
               supplier.email,
               subject,
               emailBody
@@ -416,7 +475,7 @@ async function checkExpiringProducts() {
           }
           
           if (supplier.phone_number) {
-            smsResult = await sendSmsNotification(
+            await sendSmsNotification(
               supplier.phone_number,
               smsMessage
             );

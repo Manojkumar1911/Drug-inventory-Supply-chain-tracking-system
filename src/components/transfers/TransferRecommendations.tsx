@@ -130,7 +130,7 @@ const TransferRecommendations: React.FC = () => {
       const { error: alertError } = await supabase
         .from("alerts")
         .update({ status: "Processed" })
-        .eq("id", recommendation.id);
+        .eq("id", parseInt(recommendation.id));
         
       if (alertError) throw alertError;
       
@@ -156,7 +156,7 @@ const TransferRecommendations: React.FC = () => {
       const { error } = await supabase
         .from("alerts")
         .update({ status: "Declined" })
-        .eq("id", recommendation.id);
+        .eq("id", parseInt(recommendation.id));
         
       if (error) throw error;
       
@@ -173,13 +173,13 @@ const TransferRecommendations: React.FC = () => {
   };
 
   return (
-    <Card className="bg-gradient-to-br from-blue-50/30 to-indigo-50/30 dark:from-blue-900/10 dark:to-indigo-900/10 border-blue-200/30">
+    <Card className="bg-gradient-to-br from-blue-50/30 to-indigo-50/30 dark:from-blue-900/10 dark:to-indigo-900/10 border-blue-200/30 hover:shadow-lg transition-all duration-300">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">
             <div className="flex items-center gap-2">
               <ArrowLeftRight className="h-5 w-5 text-blue-600" />
-              <span>Transfer Recommendations</span>
+              <span className="bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">Transfer Recommendations</span>
             </div>
           </CardTitle>
           <Button 
@@ -187,6 +187,7 @@ const TransferRecommendations: React.FC = () => {
             size="sm"
             onClick={fetchRecommendations}
             disabled={loading}
+            className="border-blue-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all duration-200"
           >
             {loading ? "Loading..." : "Refresh"}
           </Button>
@@ -208,7 +209,7 @@ const TransferRecommendations: React.FC = () => {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-blue-50/50 dark:bg-blue-900/10">
                   <TableHead>Product</TableHead>
                   <TableHead>Quantity</TableHead>
                   <TableHead>From</TableHead>
@@ -219,14 +220,14 @@ const TransferRecommendations: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {recommendations.map((recommendation) => (
-                  <TableRow key={recommendation.id}>
+                  <TableRow key={recommendation.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-colors">
                     <TableCell className="font-medium">{recommendation.product_name}</TableCell>
                     <TableCell>{recommendation.quantity}</TableCell>
                     <TableCell>{recommendation.from_location}</TableCell>
                     <TableCell>{recommendation.to_location}</TableCell>
                     <TableCell>
                       <Badge className={recommendation.priority === "Urgent" 
-                        ? "bg-red-100 text-red-800 hover:bg-red-100/80" 
+                        ? "bg-red-100 text-red-800 hover:bg-red-100/80 animate-pulse" 
                         : "bg-blue-100 text-blue-800 hover:bg-blue-100/80"}>
                         {recommendation.priority}
                       </Badge>
@@ -236,7 +237,7 @@ const TransferRecommendations: React.FC = () => {
                         <Button 
                           variant="outline" 
                           size="icon" 
-                          className="h-8 w-8 bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/40"
+                          className="h-8 w-8 bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/40 transform transition-all duration-200 hover:scale-105"
                           onClick={() => handleApproveTransfer(recommendation)}
                           disabled={processingIds.includes(recommendation.id!)}
                         >
@@ -250,7 +251,7 @@ const TransferRecommendations: React.FC = () => {
                         <Button 
                           variant="outline" 
                           size="icon" 
-                          className="h-8 w-8 bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
+                          className="h-8 w-8 bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 transform transition-all duration-200 hover:scale-105"
                           onClick={() => handleDeclineTransfer(recommendation)}
                           disabled={processingIds.includes(recommendation.id!)}
                         >
