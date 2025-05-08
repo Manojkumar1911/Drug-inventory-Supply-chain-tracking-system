@@ -8,6 +8,7 @@ import {
 } from "react-router-dom";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/context/AuthContext";
 
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -30,36 +31,38 @@ import AIFeatures from "./pages/AIFeatures";
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="theme">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/not-found" element={<NotFound />} />
-          
-          {/* Protected routes */}
-          <Route element={<AuthGuard />}>
-            <Route element={<MainLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/transfers" element={<Transfers />} />
-              <Route path="/alerts" element={<Alerts />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/locations" element={<Locations />} />
-              <Route path="/suppliers" element={<Suppliers />} />
-              <Route path="/users" element={<Users />} />
-              <Route path="/reorder" element={<Reorder />} />
-              <Route path="/ai-features" element={<AIFeatures />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/not-found" element={<NotFound />} />
+            
+            {/* Protected routes */}
+            <Route element={<AuthGuard />}>
+              <Route element={<MainLayout />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/transfers" element={<Transfers />} />
+                <Route path="/alerts" element={<Alerts />} />
+                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/locations" element={<Locations />} />
+                <Route path="/suppliers" element={<Suppliers />} />
+                <Route path="/users" element={<Users />} />
+                <Route path="/reorder" element={<Reorder />} />
+                <Route path="/ai-features" element={<AIFeatures />} />
+              </Route>
             </Route>
-          </Route>
-          
-          <Route path="*" element={<Navigate to="/not-found" />} />
-        </Routes>
-      </BrowserRouter>
-      <Toaster />
+            
+            <Route path="*" element={<Navigate to="/not-found" />} />
+          </Routes>
+        </BrowserRouter>
+        <Toaster />
+      </AuthProvider>
     </ThemeProvider>
   );
 }
