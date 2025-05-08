@@ -1,8 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthUser {
@@ -29,7 +28,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const setupAuth = async () => {
@@ -110,7 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       if (data.user) {
         toast.success('Logged in successfully');
-        navigate('/dashboard');
+        // Don't use navigate here, we'll handle navigation in the protected components
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -146,11 +144,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
         
         toast.success('Account created successfully! Please check your email to confirm your account.');
-        
-        // Check if email confirmation is required
-        if (data.session) {
-          navigate('/dashboard');
-        }
+        // Don't use navigate here, we'll handle navigation in the components
       }
     } catch (error) {
       console.error('Signup error:', error);
@@ -171,7 +165,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsAuthenticated(false);
       setSession(null);
       toast.info('Logged out successfully');
-      navigate('/login');
+      // Don't use navigate here
     } catch (error) {
       console.error('Logout error:', error);
       toast.error(error instanceof Error ? error.message : 'Logout failed');

@@ -31,9 +31,9 @@ import AIFeatures from "./pages/AIFeatures";
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="theme">
-      <AuthProvider>
-        <BrowserRouter>
+    <BrowserRouter>
+      <ThemeProvider defaultTheme="system" storageKey="theme">
+        <AuthProvider>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
@@ -60,10 +60,10 @@ function App() {
             
             <Route path="*" element={<Navigate to="/not-found" />} />
           </Routes>
-        </BrowserRouter>
-        <Toaster />
-      </AuthProvider>
-    </ThemeProvider>
+          <Toaster />
+        </AuthProvider>
+      </ThemeProvider>
+    </BrowserRouter>
   );
 }
 

@@ -1,7 +1,7 @@
 
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import React from "react";
+import React, { useEffect } from "react";
 
 const AuthGuard: React.FC = () => {
   const { isAuthenticated, loading } = useAuth();

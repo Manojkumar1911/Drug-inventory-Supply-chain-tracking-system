@@ -14,7 +14,7 @@ export const initSettingsRoutes = (pool: Pool) => {
 };
 
 // Get all settings
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     // Assuming findAll is implemented in your model
     const settings = await settingsModel.find();
