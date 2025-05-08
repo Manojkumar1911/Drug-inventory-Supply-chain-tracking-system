@@ -31,7 +31,7 @@ import AIFeatures from "./pages/AIFeatures";
 
 function App() {
   return (
-    <ThemeProvider>
+    <ThemeProvider defaultTheme="system" storageKey="theme">
       <AuthProvider>
         <BrowserRouter>
           <Routes>
