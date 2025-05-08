@@ -24,7 +24,7 @@ import Locations from "./pages/Locations";
 import Suppliers from "./pages/Suppliers";
 import Users from "./pages/Users";
 import Reorder from "./pages/Reorder";
-import AuthGuard from "./components/auth/AuthGuard";
+import AuthGuard from "@/guards/AuthGuard";
 import MainLayout from "./components/layout/MainLayout";
 import AIFeatures from "./pages/AIFeatures";
 

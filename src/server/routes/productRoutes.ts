@@ -60,10 +60,8 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const product = await productModel.create(req.body);
     res.status(201).json(product);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error creating product', error });
-    return;
   }
 });
 
@@ -76,10 +74,8 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     res.json(product);
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error updating product', error });
-    return;
   }
 });
 
@@ -90,10 +86,8 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
     // Marking as inactive rather than deleting
     await productModel.update(parseInt(id), { quantity: 0, reorder_level: 0 });
     res.status(204).send();
-    return;
   } catch (error) {
     res.status(500).json({ message: 'Error deleting product', error });
-    return;
   }
 });
 
@@ -145,22 +139,18 @@ router.post('/upload', authenticateToken, multerUpload.single('file'), async (re
             productsAdded,
             count: productsAdded 
           });
-          return;
         } catch (error) {
           console.error('Error processing CSV rows:', error);
           res.status(500).json({ message: 'Error processing CSV data', error });
-          return;
         }
       })
       .on('error', (error: any) => {
         console.error('CSV parsing error:', error);
         res.status(500).json({ message: 'Error processing CSV file', error });
-        return;
       });
   } catch (error) {
     console.error('CSV import error:', error);
     res.status(500).json({ message: 'Error processing CSV file', error });
-    return;
   }
 });
 

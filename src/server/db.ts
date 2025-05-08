@@ -28,9 +28,9 @@ const RETRY_DELAY_MS = 5000;
 
 /**
  * Initialize the database connection
- * @returns {Promise<typeof Pool>} The database connection pool
+ * @returns {Promise<Pool>} The database connection pool
  */
-export async function initDb(): Promise<typeof Pool> {
+export async function initDb(): Promise<Pool> {
   if (isConnected) {
     // If already connected, just return the pool
     return pool;

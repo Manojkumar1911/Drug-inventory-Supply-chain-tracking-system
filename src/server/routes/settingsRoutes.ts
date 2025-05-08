@@ -52,12 +52,12 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
     let setting;
     if (existingSetting) {
       // Update the existing setting
-      setting = await settingsModel.update(existingSetting.id, { 
+      setting = await settingsModel.update(existingSetting.key, { 
         value, 
         description: description || existingSetting.description,
         group_name: group_name || existingSetting.group_name,
         // Only use req.user.id if it exists - added type check
-        updated_by: req.user?.id || null
+        updated_by: req.body.user?.id || null
       });
     } else {
       // Create a new setting
@@ -67,7 +67,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
         description: description || '',
         group_name: group_name || 'general',
         // Only use req.user.id if it exists - added type check
-        updated_by: req.user?.id || null
+        updated_by: req.body.user?.id || null
       });
     }
     
@@ -88,7 +88,7 @@ router.delete('/:key', authenticateToken, async (req: Request, res: Response) =>
       return res.status(404).json({ message: 'Setting not found' });
     }
     
-    await settingsModel.delete(existingSettings[0].id);
+    await settingsModel.delete(existingSettings[0].key);
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ message: 'Error deleting setting', error });

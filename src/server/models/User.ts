@@ -1,4 +1,3 @@
-
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 

@@ -17,9 +17,9 @@ export interface IProduct {
 }
 
 class ProductModel {
-  private pool: typeof Pool;
+  private pool: Pool;
 
-  constructor(pool: typeof Pool) {
+  constructor(pool: Pool) {
     this.pool = pool;
   }
 

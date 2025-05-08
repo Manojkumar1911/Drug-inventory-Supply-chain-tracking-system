@@ -1,4 +1,3 @@
-
 import express, { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -10,11 +9,9 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret';
 
 let userModel: UserModel;
-let pool: Pool;
 
 // Initialize model with pool
-export const initAuthRoutes = (dbPool: Pool) => {
-  pool = dbPool;
+export const initAuthRoutes = (pool: Pool) => {
   userModel = new UserModel(pool);
   return router;
 };
