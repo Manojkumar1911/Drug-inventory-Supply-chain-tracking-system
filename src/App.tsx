@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   BrowserRouter,
@@ -5,8 +6,8 @@ import {
   Route,
   Navigate
 } from "react-router-dom";
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
+import { ThemeProvider } from "./components/ThemeProvider";
+import { Toaster } from "@/components/ui/toaster";
 
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -58,7 +59,7 @@ function App() {
           <Route path="*" element={<Navigate to="/not-found" />} />
         </Routes>
       </BrowserRouter>
-      <Toaster position="top-right" />
+      <Toaster />
     </ThemeProvider>
   );
 }
