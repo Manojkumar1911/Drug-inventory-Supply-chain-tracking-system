@@ -15,9 +15,9 @@ export interface IAlert {
 }
 
 class AlertModel {
-  private pool: Pool;
+  private pool: typeof Pool;
 
-  constructor(pool: Pool) {
+  constructor(pool: typeof Pool) {
     this.pool = pool;
   }
 

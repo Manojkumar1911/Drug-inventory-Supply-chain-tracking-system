@@ -1,10 +1,12 @@
 
+# A string used to distinguish different Supabase projects on the same host. Defaults to the
+# working directory name when running `supabase init`.
 project_id = "labzxhoshhzfixlzccrw"
 
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "storage"]
+schemas = ["public", "storage", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
@@ -13,11 +15,24 @@ port = 54322
 shadow_port = 54320
 major_version = 15
 
+[db.pooler]
+enabled = false
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 15
+max_client_conn = 100
+
+[realtime]
+enabled = true
+ip_version = "IPv6"
+
 [studio]
 enabled = true
 port = 54323
-api_url = "http://localhost"
+api_url = "https://api.supabase.com"
 
+# Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
+# are monitored, and you can view the emails that would have been sent from the web interface.
 [inbucket]
 enabled = true
 port = 54324
@@ -35,141 +50,26 @@ additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
+enable_signup = true
 
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 
-[auth.external.apple]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.azure]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.bitbucket]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.discord]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.facebook]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.figma]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.github]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.gitlab]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.google]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.keycloak]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.linkedin]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.notion]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.slack]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.spotify]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.twitch]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.twitter]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[auth.external.workos]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-url = ""
-
-[analytics]
-enabled = false
-port = 54327
-vector_port = 54328
-gcp_logging_enabled = false
-gcp_logging_project_id = ""
-
-[experimental]
-minimal_apis_only = false
+[auth.sms]
+enable_signup = true
+enable_confirmations = true
 
 [functions]
+enabled = true
+port = 54328
+
 [functions.send-alert-notifications]
-verify_jwt = true
+verify_jwt = false
+
+[functions.generate-smart-report]
+verify_jwt = false
+
+[functions.ai-chatbot]
+verify_jwt = false

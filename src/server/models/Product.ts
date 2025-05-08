@@ -17,9 +17,9 @@ export interface IProduct {
 }
 
 class ProductModel {
-  private pool: Pool;
+  private pool: typeof Pool;
 
-  constructor(pool: Pool) {
+  constructor(pool: typeof Pool) {
     this.pool = pool;
   }
 
@@ -116,7 +116,7 @@ class ProductModel {
 
   async findProductsToReorder(): Promise<IProduct[]> {
     try {
-      const result = await this.pool.query('SELECT * FROM products WHERE quantity < reorder_level');
+      const result = await this.pool.query('SELECT * FROM products WHERE quantity <= reorder_level');
       return result.rows;
     } catch (error) {
       console.error('Error finding products to reorder:', error);

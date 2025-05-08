@@ -1,67 +1,65 @@
+import React from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate
+} from "react-router-dom";
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/toaster"
 
-import { Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { Toaster } from 'sonner';
-
-// Main Layout
-import MainLayout from './components/layout/MainLayout';
-
-// Pages
-import Index from './pages/Index';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Alerts from './pages/Alerts';
-import Transfers from './pages/Transfers';
-import Reorder from './pages/Reorder';
-import Suppliers from './pages/Suppliers';
-import Locations from './pages/Locations';
-import Analytics from './pages/Analytics';
-import Settings from './pages/Settings';
-import Users from './pages/Users';
-import Profile from './pages/Profile';
-import NotFound from './pages/NotFound';
-
-// Guards
-import AuthGuard from './guards/AuthGuard';
-import GuestGuard from './guards/GuestGuard';
+import Index from "./pages/Index";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import NotFound from "./pages/NotFound";
+import Dashboard from "./pages/Dashboard";
+import Products from "./pages/Products";
+import Transfers from "./pages/Transfers";
+import Alerts from "./pages/Alerts";
+import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
+import Locations from "./pages/Locations";
+import Suppliers from "./pages/Suppliers";
+import Users from "./pages/Users";
+import Reorder from "./pages/Reorder";
+import AuthGuard from "./components/auth/AuthGuard";
+import MainLayout from "./components/layout/MainLayout";
+import AIFeatures from "./pages/AIFeatures";
 
 function App() {
   return (
-    <AuthProvider>
-      <Toaster position="top-right" closeButton richColors />
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<Index />} />
-        
-        {/* Guest routes (not accessible when logged in) */}
-        <Route element={<GuestGuard />}>
+    <ThemeProvider defaultTheme="system" storageKey="theme">
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-        </Route>
-        
-        {/* Protected routes with main layout */}
-        <Route element={<AuthGuard />}>
-          <Route element={<MainLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/transfers" element={<Transfers />} />
-            <Route path="/reorder" element={<Reorder />} />
-            <Route path="/suppliers" element={<Suppliers />} />
-            <Route path="/locations" element={<Locations />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/profile" element={<Profile />} />
+          <Route path="/not-found" element={<NotFound />} />
+          
+          {/* Protected routes */}
+          <Route element={<AuthGuard />}>
+            <Route element={<MainLayout />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/transfers" element={<Transfers />} />
+              <Route path="/alerts" element={<Alerts />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/locations" element={<Locations />} />
+              <Route path="/suppliers" element={<Suppliers />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/reorder" element={<Reorder />} />
+              <Route path="/ai-features" element={<AIFeatures />} />
+            </Route>
           </Route>
-        </Route>
-        
-        {/* 404 route */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AuthProvider>
+          
+          <Route path="*" element={<Navigate to="/not-found" />} />
+        </Routes>
+      </BrowserRouter>
+      <Toaster position="top-right" />
+    </ThemeProvider>
   );
 }
 
