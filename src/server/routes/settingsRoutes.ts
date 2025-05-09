@@ -1,97 +1,73 @@
 
+// Import required modules
 import express, { Request, Response } from 'express';
-import { Pool } from 'pg';
-import SettingsModel from '../models/Settings';
-import { authenticateToken } from './authRoutes';
+import Settings from '../models/Settings';
 
 const router = express.Router();
-let settingsModel: SettingsModel;
-
-// Initialize model with pool
-export const initSettingsRoutes = (pool: Pool) => {
-  settingsModel = new SettingsModel(pool);
-  return router;
-};
 
 // Get all settings
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    // Assuming findAll is implemented in your model
-    const settings = await settingsModel.find();
-    res.json(settings);
+    const settings = await Settings.find();
+    return res.status(200).json(settings);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching settings', error });
+    console.error('Error fetching settings:', error);
+    return res.status(500).json({ message: 'Failed to fetch settings', error });
   }
 });
 
-// Get settings by group
-router.get('/group/:groupName', async (req: Request, res: Response) => {
+// Get settings by key
+router.get('/:key', async (req: Request, res: Response) => {
   try {
-    // Assuming findByGroup is implemented in your model
-    const { groupName } = req.params;
-    const settings = await settingsModel.find({ group_name: groupName });
-    res.json(settings);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching settings by group', error });
-  }
-});
-
-// Update or create a setting
-router.post('/', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { key, value, description, group_name } = req.body;
+    const setting = await Settings.findOne({ key: req.params.key });
     
-    if (!key || !value) {
-      return res.status(400).json({ message: 'Key and value are required' });
-    }
-    
-    // Check if the setting already exists
-    const existingSettings = await settingsModel.find({ key });
-    const existingSetting = existingSettings.length > 0 ? existingSettings[0] : null;
-    
-    let setting;
-    if (existingSetting) {
-      // Update the existing setting
-      setting = await settingsModel.update(existingSetting.key, { 
-        value, 
-        description: description || existingSetting.description,
-        group_name: group_name || existingSetting.group_name,
-        // Only use req.user.id if it exists - added type check
-        updated_by: req.body.user?.id || null
-      });
-    } else {
-      // Create a new setting
-      setting = await settingsModel.create({
-        key,
-        value,
-        description: description || '',
-        group_name: group_name || 'general',
-        // Only use req.user.id if it exists - added type check
-        updated_by: req.body.user?.id || null
-      });
-    }
-    
-    res.json(setting);
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating setting', error });
-  }
-});
-
-// Delete a setting
-router.delete('/:key', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { key } = req.params;
-    // Assuming remove function exists in your model
-    const existingSettings = await settingsModel.find({ key });
-    
-    if (existingSettings.length === 0) {
+    if (!setting) {
       return res.status(404).json({ message: 'Setting not found' });
     }
     
-    await settingsModel.delete(existingSettings[0].key);
-    res.status(204).send();
+    return res.status(200).json(setting);
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting setting', error });
+    console.error('Error fetching setting:', error);
+    return res.status(500).json({ message: 'Failed to fetch setting', error });
+  }
+});
+
+// Create or update setting
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const { key, value, category } = req.body;
+    
+    if (!key || value === undefined) {
+      return res.status(400).json({ message: 'Key and value are required' });
+    }
+    
+    // Find and update if exists, otherwise create new
+    const setting = await Settings.findOneAndUpdate(
+      { key },
+      { key, value, category: category || 'general' },
+      { new: true, upsert: true, runValidators: true }
+    );
+    
+    return res.status(200).json(setting);
+  } catch (error) {
+    console.error('Error updating setting:', error);
+    return res.status(500).json({ message: 'Failed to update setting', error });
+  }
+});
+
+// Delete setting
+router.delete('/:key', async (req: Request, res: Response) => {
+  try {
+    const setting = await Settings.findOneAndDelete({ key: req.params.key });
+    
+    if (!setting) {
+      return res.status(404).json({ message: 'Setting not found' });
+    }
+    
+    return res.status(200).json({ message: 'Setting deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting setting:', error);
+    return res.status(500).json({ message: 'Failed to delete setting', error });
   }
 });
 

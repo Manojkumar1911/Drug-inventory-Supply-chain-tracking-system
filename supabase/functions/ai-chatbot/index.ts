@@ -1,5 +1,5 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.2.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +51,7 @@ serve(async (req) => {
   }
 
   try {
+    const apiKey = Deno.env.get("GEMINI_API_KEY") || "AIzaSyBEH2mYFm2r8NTsfbPGea4vXY3QMF5xrJY";
     const { query } = await req.json();
     
     if (!query || typeof query !== "string") {
@@ -66,10 +67,11 @@ serve(async (req) => {
       );
     }
     
+    // First, check our knowledge base for specific answers
     // Normalize the query by making it lowercase and removing extra spaces
     const normalizedQuery = query.toLowerCase().trim();
     
-    // Find the best matching response
+    // Find the best matching response from knowledge base
     let bestMatch = null;
     let bestScore = 0;
     
@@ -85,21 +87,51 @@ serve(async (req) => {
       }
     }
     
-    // Default response if no good match
-    if (!bestMatch) {
-      bestMatch = "I don't have specific information about that. Could you try asking in a different way or about a different topic? You can ask about inventory management, transfers, alerts, reports, or user management.";
+    // If we have a good match, return it
+    if (bestMatch && bestScore > 2) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          response: bestMatch,
+          query: query,
+          source: "knowledge_base"
+        }),
+        {
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
+    
+    // Otherwise, use Gemini AI for a more dynamic response
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // For text-only input, use the gemini-pro model
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    
+    const systemPrompt = "You are an AI assistant for a pharmacy inventory management system called PharmaLink. " +
+      "Give brief, helpful responses about inventory management, product tracking, transfers, alerts, and reports. " +
+      "Keep answers concise (1-3 sentences) and focused specifically on pharmaceutical inventory management. " +
+      "If you don't know something specific about PharmaLink, suggest where the user might find that information in the app.";
+    
+    const result = await model.generateContent([
+      systemPrompt,
+      `User question: ${query}`
+    ]);
+    
+    const response = result.response.text();
     
     return new Response(
       JSON.stringify({
         success: true,
-        response: bestMatch,
-        query: query
+        response: response,
+        query: query,
+        source: "ai"
       }),
       {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
+    
   } catch (error) {
     console.error("Error in AI chatbot function:", error);
     return new Response(

@@ -1,73 +1,82 @@
 
+// Import required modules
 import express, { Request, Response } from 'express';
-import { Pool } from 'pg';
-import SupplierModel from '../models/Supplier';
-import { authenticateToken } from './authRoutes';
+import Supplier from '../models/Supplier';
 
 const router = express.Router();
-let supplierModel: SupplierModel;
-
-// Initialize model with pool
-export const initSupplierRoutes = (pool: Pool) => {
-  supplierModel = new SupplierModel(pool);
-  return router;
-};
 
 // Get all suppliers
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const suppliers = await supplierModel.find();
-    res.json(suppliers);
+    const suppliers = await Supplier.find();
+    return res.status(200).json(suppliers);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    console.error('Error fetching suppliers:', error);
+    return res.status(500).json({ message: 'Failed to fetch suppliers', error });
   }
 });
 
-// Get supplier by ID
+// Get a single supplier by ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const supplier = await supplierModel.findById(parseInt(req.params.id));
+    const supplier = await Supplier.findById(req.params.id);
+    
     if (!supplier) {
       return res.status(404).json({ message: 'Supplier not found' });
     }
-    res.json(supplier);
+    
+    return res.status(200).json(supplier);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    console.error('Error fetching supplier:', error);
+    return res.status(500).json({ message: 'Failed to fetch supplier', error });
   }
 });
 
-// Create supplier
-router.post('/', authenticateToken, async (req: Request, res: Response) => {
+// Create a new supplier
+router.post('/', async (req: Request, res: Response) => {
   try {
-    const supplier = await supplierModel.create(req.body);
-    res.json(supplier);
+    const supplier = new Supplier(req.body);
+    const savedSupplier = await supplier.save();
+    return res.status(201).json(savedSupplier);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating supplier', error });
+    console.error('Error creating supplier:', error);
+    return res.status(500).json({ message: 'Failed to create supplier', error });
   }
 });
 
-// Update supplier
-router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
+// Update a supplier
+router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const supplier = await supplierModel.update(parseInt(id), req.body);
+    const supplier = await Supplier.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    
     if (!supplier) {
       return res.status(404).json({ message: 'Supplier not found' });
     }
-    res.json(supplier);
+    
+    return res.status(200).json(supplier);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating supplier', error });
+    console.error('Error updating supplier:', error);
+    return res.status(500).json({ message: 'Failed to update supplier', error });
   }
 });
 
-// Delete supplier
-router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+// Delete a supplier
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    await supplierModel.update(parseInt(id), { is_active: false });
-    res.status(204).send();
+    const supplier = await Supplier.findByIdAndDelete(req.params.id);
+    
+    if (!supplier) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+    
+    return res.status(200).json({ message: 'Supplier deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting supplier', error });
+    console.error('Error deleting supplier:', error);
+    return res.status(500).json({ message: 'Failed to delete supplier', error });
   }
 });
 

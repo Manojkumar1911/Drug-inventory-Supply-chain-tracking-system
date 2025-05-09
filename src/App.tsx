@@ -29,6 +29,7 @@ import AuthGuard from "@/guards/AuthGuard";
 import MainLayout from "./components/layout/MainLayout";
 import AIFeatures from "./pages/AIFeatures";
 import PurchaseOrders from "./pages/PurchaseOrders";
+import FloatingChatButton from "./components/ai/FloatingChatButton";
 
 function App() {
   return (
@@ -62,6 +63,8 @@ function App() {
             
             <Route path="*" element={<Navigate to="/not-found" />} />
           </Routes>
+          {/* Add the floating chat button to all pages */}
+          <FloatingChatButton />
           <Toaster />
         </AuthProvider>
       </ThemeProvider>

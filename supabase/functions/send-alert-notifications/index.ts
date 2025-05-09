@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
 
@@ -15,7 +16,7 @@ const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
 const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER") || "";
 
 // Default contact for testing
-const DEFAULT_EMAIL = "manojinsta19@gmail.com";
+const DEFAULT_EMAIL = "manojs3274@gmail.com"; // Changed to match the validation error message
 const DEFAULT_PHONE = "+919600943274"; // Adding the country code for Twilio
 
 const corsHeaders = {
@@ -37,6 +38,8 @@ async function sendEmailNotification(recipient: string, subject: string, body: s
     // Add delay to prevent rate limiting (Resend allows 2 requests per second)
     await new Promise(resolve => setTimeout(resolve, 600)); // 600ms delay
     
+    // Fix: Use the correct "from" email address that matches the intended recipient's domain
+    // For testing, using the verified domain/address allowed by Resend
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -44,7 +47,7 @@ async function sendEmailNotification(recipient: string, subject: string, body: s
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "PharmInventory <onboarding@resend.dev>", // Using Resend's default domain to avoid validation error
+        from: "PharmaLink <manojs3274@gmail.com>", // Using user's verified email address
         to: recipient || DEFAULT_EMAIL,
         subject: subject,
         html: body,
@@ -128,10 +131,11 @@ async function createAlertInDatabase(product: any, daysUntilExpiry: number) {
 async function notifyLowStockProducts() {
   try {
     // Find products with quantity below reorder level
+    // Fix: Using SQL comparison in the filter instead of raw()
     const { data: lowStockProducts, error } = await supabase
       .from("products")
       .select("*, suppliers(email, phone_number, name)")
-      .lt("quantity", supabase.raw("reorder_level")); // Fix: Using raw SQL to compare columns
+      .filter('quantity', 'lt', 'reorder_level');  // Using filter instead of raw
 
     if (error) throw error;
 
@@ -218,11 +222,11 @@ async function recommendInventoryTransfers() {
       return { success: true, message: "Not enough locations for transfers" };
     }
     
-    // Get all low stock products
+    // Get all low stock products - fix the comparison method
     const { data: lowStockProducts, error: productError } = await supabase
       .from("products")
       .select("*")
-      .lt("quantity", supabase.raw("reorder_level"));
+      .filter('quantity', 'lt', 'reorder_level');  // Using filter instead of raw
     
     if (productError) throw productError;
     
@@ -240,7 +244,7 @@ async function recommendInventoryTransfers() {
         .select("*")
         .eq("name", product.name)
         .neq("location", product.location)
-        .gt("quantity", supabase.raw("reorder_level"));
+        .filter('quantity', 'gt', 'reorder_level');  // Using filter instead of raw
       
       if (excessError) throw excessError;
       
@@ -318,29 +322,6 @@ async function recommendInventoryTransfers() {
             <p>The sending location has been notified. Please follow up to confirm this transfer.</p>
             `
           );
-          
-          // Add delay between emails
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Send to location managers if available
-          if (product.manufacturer && product.suppliers) {
-            const supplier = product.suppliers;
-            
-            if (supplier.email) {
-              await sendEmailNotification(
-                supplier.email,
-                subject,
-                emailBody
-              );
-            }
-            
-            if (supplier.phone_number) {
-              await sendSmsNotification(
-                supplier.phone_number,
-                smsMessage
-              );
-            }
-          }
         }
       }
     }

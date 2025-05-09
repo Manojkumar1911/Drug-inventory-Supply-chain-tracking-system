@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
+import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.2.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,7 +69,7 @@ serve(async (req) => {
       const { data: lowStockData, error: lowStockError } = await supabaseClient
         .from("products")
         .select("*")
-        .lte("quantity", "reorder_level");
+        .filter('quantity', 'lt', 'reorder_level');  // Using filter instead of raw
       
       if (lowStockError) throw lowStockError;
       
@@ -143,6 +144,74 @@ serve(async (req) => {
       ];
       
       summary = `Transfer Status: You have ${pending} pending transfers awaiting approval and ${inTransit} transfers currently in transit. ${completed} transfers were recently completed.`;
+    }
+
+    // Use Gemini to enhance the insights if available
+    try {
+      const apiKey = Deno.env.get("GEMINI_API_KEY") || "AIzaSyBEH2mYFm2r8NTsfbPGea4vXY3QMF5xrJY";
+      
+      if (apiKey) {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        
+        // Create a prompt based on the data we have
+        let promptContent = `Analyze this pharmaceutical inventory data and provide 3-5 business insights. Format as bullet points.\n\n`;
+        
+        if (reportType === "inventory_summary") {
+          promptContent += `Inventory Summary by Category:\n`;
+          data.forEach(item => {
+            promptContent += `- ${item.category}: ${item.total} units\n`;
+          });
+        } 
+        else if (reportType === "low_stock") {
+          promptContent += `Low Stock Products:\n`;
+          data.slice(0, 5).forEach(item => {
+            promptContent += `- ${item.name} (${item.sku}): ${item.quantity} ${item.unit} - Reorder Level: ${item.reorder_level}\n`;
+          });
+          if (data.length > 5) {
+            promptContent += `- And ${data.length - 5} more items...\n`;
+          }
+        }
+        else if (reportType === "expiry") {
+          promptContent += `Products Expiring Soon:\n`;
+          data.slice(0, 5).forEach(item => {
+            promptContent += `- ${item.name}: Expires on ${new Date(item.expiry_date).toLocaleDateString()}, Current Stock: ${item.quantity} ${item.unit}\n`;
+          });
+          if (data.length > 5) {
+            promptContent += `- And ${data.length - 5} more items...\n`;
+          }
+        }
+        
+        promptContent += `\nExisting insights:\n`;
+        insights.forEach(insight => {
+          promptContent += `- ${insight}\n`;
+        });
+        
+        // Get enhanced insights from Gemini
+        const result = await model.generateContent(promptContent);
+        const enhancedInsights = result.response.text().split('\n').filter(line => 
+          line.trim().startsWith('-') || line.trim().startsWith('•')
+        ).map(line => 
+          line.trim().replace(/^[•-]\s*/, '')
+        );
+        
+        // Add the enhanced insights if we got some
+        if (enhancedInsights.length > 0) {
+          insights = [...insights, ...enhancedInsights];
+          
+          // Also generate an enhanced summary
+          const summaryResult = await model.generateContent(
+            `Summarize this pharmaceutical inventory data in 1-2 sentences:\n${promptContent}`
+          );
+          const enhancedSummary = summaryResult.response.text().trim();
+          if (enhancedSummary) {
+            summary = enhancedSummary;
+          }
+        }
+      }
+    } catch (aiError) {
+      console.error("Error enhancing report with AI:", aiError);
+      // Continue with the basic insights if AI enhancement fails
     }
 
     return new Response(
