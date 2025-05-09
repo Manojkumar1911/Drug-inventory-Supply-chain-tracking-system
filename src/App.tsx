@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, createContext, useContext } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
 
@@ -35,7 +36,7 @@ const AuthContext = createContext<AuthContextProps>({
   setUser: () => {},
 });
 
-const useAuth = () => useContext(AuthContext);
+export const useAuth = () => useContext(AuthContext);
 
 const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -80,31 +81,9 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const App: React.FC = () => {
-  const [isAuthChecked, setIsAuthChecked] = useState(false);
-  const { setIsAuthenticated, setUser } = useAuth();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('sb-access-token');
-      if (token) {
-        setIsAuthenticated(true);
-        try {
-          const user = localStorage.getItem('user');
-          setUser(user ? JSON.parse(user) : null);
-        } catch (error) {
-          console.error("Error parsing user from localStorage:", error);
-          setUser(null);
-        }
-      }
-      setIsAuthChecked(true);
-    };
-
-    checkAuth();
-  }, [setIsAuthenticated, setUser]);
-  
   return (
     <BrowserRouter>
-      <ThemeProvider>
+      <ThemeProvider defaultTheme="system" storageKey="theme">
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Index />} />
@@ -112,8 +91,12 @@ const App: React.FC = () => {
             <Route path="/signup" element={<Signup />} />
             <Route path="*" element={<NotFound />} />
             
-            <Route element={<AuthGuard />}>
-              <Route element={<MainLayout />}>
+            <Route path="/" element={
+              <AuthGuard>
+                <Outlet />
+              </AuthGuard>
+            }>
+              <Route path="/" element={<MainLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/products" element={<Products />} />
                 <Route path="/locations" element={<Locations />} />
@@ -130,11 +113,7 @@ const App: React.FC = () => {
           </Routes>
           
           {/* Floating chatbot available on all authenticated routes */}
-          <Routes>
-            <Route element={<AuthGuard />}>
-              <Route path="*" element={<FloatingChatButton />} />
-            </Route>
-          </Routes>
+          <FloatingChatButton />
           
           <Toaster />
         </AuthProvider>

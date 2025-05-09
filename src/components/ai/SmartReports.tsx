@@ -2,10 +2,10 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, TrendingUp, BarChart, AlertCircle, LayoutDashboard, FileText } from "lucide-react";
+import { Sparkles, TrendingUp, BarChart as BarChartIcon, AlertCircle, LayoutDashboard, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BarChart as Chart } from '@/components/ui/chart';
+import { ChartContainer } from '@/components/ui/chart';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -102,7 +102,7 @@ const SmartReports: React.FC = () => {
       } else {
         toast.error("Error generating report: No valid response from API");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating report:", error);
       toast.error(`Error generating report: ${error.message || "Unknown error"}`);
     } finally {
@@ -147,7 +147,7 @@ const SmartReports: React.FC = () => {
                 <span className="hidden sm:inline">Trends</span>
               </TabsTrigger>
               <TabsTrigger value="categories" className="gap-2">
-                <BarChart className="h-4 w-4" />
+                <BarChartIcon className="h-4 w-4" />
                 <span className="hidden sm:inline">Categories</span>
               </TabsTrigger>
               <TabsTrigger value="alerts" className="gap-2">
@@ -205,17 +205,36 @@ const SmartReports: React.FC = () => {
                 
                 {reportData.chart && (
                   <div className="border p-4 rounded-lg bg-white dark:bg-gray-800 h-[300px]">
-                    <Chart
-                      type="bar"
-                      data={{
-                        labels: reportData.chart.labels,
-                        datasets: reportData.chart.datasets
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false
-                      }}
-                    />
+                    {/* Using Recharts directly since we can't use the Chart component */}
+                    <div className="w-full h-full">
+                      {/* Display chart using standard recharts components */}
+                      <div className="flex justify-center items-center h-full">
+                        <div className="w-full max-w-3xl">
+                          <div className="text-center mb-4 text-lg font-medium">
+                            Data Visualization
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {reportData.chart.labels.map((label, index) => (
+                              <div 
+                                key={index} 
+                                className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-lg"
+                                style={{
+                                  height: `${(reportData.chart?.datasets[0].data[index] || 0) / Math.max(...reportData.chart?.datasets[0].data) * 100}%`,
+                                  minHeight: '40px'
+                                }}
+                              >
+                                <div className="flex flex-col justify-between h-full">
+                                  <div className="font-medium">{label}</div>
+                                  <div className="text-lg font-bold">
+                                    {reportData.chart?.datasets[0].data[index]}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
                 

@@ -1,34 +1,29 @@
 
-// Import required modules
-import express, { Request, Response } from 'express';
-import Product from '../models/Product';
+import express, { Request, Response, Router } from 'express';
+import Product, { IProduct } from '../models/Product';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Get all products
 router.get('/', async (_req: Request, res: Response) => {
   try {
     const products = await Product.find();
     return res.status(200).json(products);
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    return res.status(500).json({ message: 'Failed to fetch products', error });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
   }
 });
 
-// Get a single product by ID
+// Get a single product
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const product = await Product.findById(req.params.id);
-    
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
     return res.status(200).json(product);
-  } catch (error) {
-    console.error('Error fetching product:', error);
-    return res.status(500).json({ message: 'Failed to fetch product', error });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
   }
 });
 
@@ -38,45 +33,38 @@ router.post('/', async (req: Request, res: Response) => {
     const product = new Product(req.body);
     const savedProduct = await product.save();
     return res.status(201).json(savedProduct);
-  } catch (error) {
-    console.error('Error creating product:', error);
-    return res.status(500).json({ message: 'Failed to create product', error });
+  } catch (error: any) {
+    return res.status(400).json({ message: error.message });
   }
 });
 
 // Update a product
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const product = await Product.findByIdAndUpdate(
+    const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { new: true }
     );
-    
-    if (!product) {
+    if (!updatedProduct) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
-    return res.status(200).json(product);
-  } catch (error) {
-    console.error('Error updating product:', error);
-    return res.status(500).json({ message: 'Failed to update product', error });
+    return res.status(200).json(updatedProduct);
+  } catch (error: any) {
+    return res.status(400).json({ message: error.message });
   }
 });
 
 // Delete a product
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
-    
-    if (!product) {
+    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+    if (!deletedProduct) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
     return res.status(200).json({ message: 'Product deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting product:', error);
-    return res.status(500).json({ message: 'Failed to delete product', error });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
   }
 });
 
