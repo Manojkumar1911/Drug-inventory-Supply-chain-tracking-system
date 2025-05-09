@@ -1,23 +1,20 @@
 
-import express, { Request, Response } from 'express';
+import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import { initDb } from './db';
-import initializeDatabase from './initDb';
-import { createModels } from './models';
+import { connectDb } from './db';
+import { initHealthCheck } from './utils/dbHealthCheck';
+import { initMonitoring } from './utils/systemMonitor';
 
-// Routes
-import authRoutes, { initAuthRoutes } from './routes/authRoutes';
-import productRoutes, { initProductRoutes } from './routes/productRoutes';
-import transferRoutes, { initTransferRoutes } from './routes/transferRoutes';
-import alertRoutes, { initAlertRoutes } from './routes/alertRoutes';
-import locationRoutes, { initLocationRoutes } from './routes/locationRoutes';
-import supplierRoutes, { initSupplierRoutes } from './routes/supplierRoutes';
-import purchaseOrderRoutes, { initPurchaseOrderRoutes } from './routes/purchaseOrderRoutes';
-import settingsRoutes, { initSettingsRoutes } from './routes/settingsRoutes';
-import analyticsRoutes, { initAnalyticsRoutes } from './routes/analyticsRoutes';
-
-dotenv.config();
+// Import route modules
+import authRoutes from './routes/authRoutes';
+import locationRoutes from './routes/locationRoutes';
+import alertRoutes from './routes/alertRoutes';
+import productRoutes from './routes/productRoutes';
+import transferRoutes from './routes/transferRoutes';
+import purchaseOrderRoutes from './routes/purchaseOrderRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
+import supplierRoutes from './routes/supplierRoutes';
+import settingsRoutes from './routes/settingsRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,79 +23,29 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Connect to PostgreSQL
-async function startServer() {
-  try {
-    // Initialize database connection
-    const pool = await initDb();
-    console.log('Database connection established');
-    
-    // Initialize database if needed
-    const initialized = await initializeDatabase();
-    if (initialized) {
-      console.log('Database schema initialized successfully');
-    }
+// Connect to MongoDB
+connectDb();
 
-    // Create models
-    const models = createModels(pool);
+// Initialize system monitoring
+initMonitoring();
 
-    // Initialize routes with pool
-    app.use('/api/auth', initAuthRoutes(pool));
-    app.use('/api/products', initProductRoutes(pool));
-    app.use('/api/transfers', initTransferRoutes(pool));
-    app.use('/api/alerts', initAlertRoutes(pool));
-    app.use('/api/locations', initLocationRoutes(pool));
-    app.use('/api/suppliers', initSupplierRoutes(pool));
-    app.use('/api/purchase-orders', initPurchaseOrderRoutes(pool));
-    app.use('/api/settings', initSettingsRoutes(pool));
-    app.use('/api/analytics', initAnalyticsRoutes(pool));
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/locations', locationRoutes);
+app.use('/api/alerts', alertRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/transfers', transferRoutes);
+app.use('/api/purchase-orders', purchaseOrderRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/settings', settingsRoutes);
 
-    // Database connection status endpoint
-    app.get('/api/system/status', async (_req: Request, res: Response) => {
-      const pgStatus = {
-        connected: false,
-        status: 'disconnected'
-      };
+// Health check route
+initHealthCheck(app);
 
-      try {
-        await pool.query('SELECT 1');
-        pgStatus.connected = true;
-        pgStatus.status = 'connected';
-      } catch (error) {
-        pgStatus.connected = false;
-        pgStatus.status = 'error';
-        console.error('Database status check error:', error);
-      }
-
-      res.json({
-        server: {
-          status: 'running',
-          uptime: process.uptime(),
-          timestamp: new Date()
-        },
-        database: pgStatus
-      });
-    });
-
-    // Start the server
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-
-    // Handle process termination
-    process.on('SIGINT', () => {
-      console.log('Server shutting down...');
-      pool.end();
-      process.exit(0);
-    });
-
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  }
-}
-
-// Start the server
-startServer().catch(err => {
-  console.error('Server startup error:', err);
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
+
+export default app;
