@@ -1,12 +1,27 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Building, BuildingStore, Mail, Map, MoreHorizontal, Phone, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
-import { PlusCircle, Search, Edit, Trash2, Star, ChevronRight, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Supplier {
@@ -16,9 +31,18 @@ interface Supplier {
   email: string;
   phone_number: string;
   address: string;
-  is_active: boolean;
-  rating: number;
-  product_count?: number;
+  city: string;
+  state: string | null;
+  country: string | null;
+  zip_code: string;
+  lead_time: number;
+  minimum_order_amount: number;
+  website: string | null;
+  notes: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+  product_count: number;
 }
 
 const Suppliers: React.FC = () => {
@@ -27,223 +51,212 @@ const Suppliers: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    loadSuppliers();
+    fetchSuppliers();
   }, []);
 
-  const loadSuppliers = async () => {
+  const fetchSuppliers = async () => {
     setIsLoading(true);
     try {
-      // Fetch suppliers from Supabase
+      // Get suppliers with product count
       const { data, error } = await supabase
         .from('suppliers')
-        .select('*');
+        .select(`
+          *,
+          product_count:products(count)
+        `)
+        .order('name');
 
       if (error) throw error;
 
-      // For demo purposes add product count
-      const suppliersWithProductCount = (data || []).map(supplier => ({
-        ...supplier,
-        product_count: Math.floor(Math.random() * 50) + 5, // Random number between 5 and 55
-      }));
-
-      setSuppliers(suppliersWithProductCount as Supplier[]);
-    } catch (error: any) {
-      console.error("Error loading suppliers:", error);
-      toast.error("Failed to load suppliers");
+      if (data) {
+        // Transform the data to convert id from number to string
+        const formattedSuppliers = data.map(supplier => ({
+          ...supplier,
+          id: supplier.id.toString(),
+          product_count: supplier.product_count || 0
+        }));
+        
+        setSuppliers(formattedSuppliers);
+      }
+    } catch (error) {
+      console.error('Error fetching suppliers:', error);
+      toast.error('Failed to load suppliers');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAddSupplier = () => {
-    toast.info("Add supplier functionality will be implemented here");
-  };
-
-  const handleEditSupplier = (id: string) => {
-    toast.info(`Edit supplier with ID: ${id}`);
-  };
-
-  const handleDeleteSupplier = (id: string) => {
-    toast.info(`Delete supplier with ID: ${id}`);
-  };
-
-  const handleViewDetails = (id: string) => {
-    toast.info(`View details for supplier with ID: ${id}`);
-  };
-
   const filteredSuppliers = suppliers.filter(supplier => 
     supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     supplier.contact_person.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    supplier.email.toLowerCase().includes(searchQuery.toLowerCase())
+    supplier.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    supplier.city.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const renderRatingStars = (rating: number) => {
-    return Array(5)
-      .fill(0)
-      .map((_, index) => (
-        <Star 
-          key={index} 
-          className={`h-4 w-4 ${index < rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"}`} 
-        />
-      ));
-  };
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Suppliers</h1>
-        <Button className="flex items-center gap-2" onClick={handleAddSupplier}>
-          <PlusCircle className="h-4 w-4" />
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Suppliers</h1>
+          <p className="text-muted-foreground">
+            Manage your supplier relationships and supply chain
+          </p>
+        </div>
+        <Button className="gap-2">
+          <Plus className="h-4 w-4" />
           Add Supplier
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Suppliers
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total Suppliers</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{suppliers.length}</div>
+            <p className="text-xs text-muted-foreground">
+              From {new Set(suppliers.map(s => s.country)).size} countries
+            </p>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-800/20 border-green-200/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Active Suppliers
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Active Suppliers</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {suppliers.filter(s => s.is_active).length}
             </div>
+            <p className="text-xs text-muted-foreground">
+              With active contracts
+            </p>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Products From Suppliers
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Average Lead Time</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {suppliers.reduce((sum, supplier) => sum + (supplier.product_count || 0), 0)}
+              {suppliers.length ? Math.round(suppliers.reduce((acc, curr) => acc + curr.lead_time, 0) / suppliers.length) : 0}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Days to deliver orders
+            </p>
           </CardContent>
         </Card>
       </div>
-      
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-medium">Manage Suppliers</CardTitle>
+          <CardTitle>Supplier Directory</CardTitle>
+          <CardDescription>
+            Complete list of your product suppliers
+          </CardDescription>
+          
+          <div className="flex flex-col gap-4 mt-4 md:flex-row md:items-center md:justify-between">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search suppliers..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="relative mb-4">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search suppliers..."
-              className="pl-8"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          
           {isLoading ? (
-            <div className="p-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mb-2"></div>
-              <p className="text-sm text-muted-foreground">Loading suppliers...</p>
+            <div className="flex justify-center items-center h-64">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent text-primary"></div>
+            </div>
+          ) : filteredSuppliers.length === 0 ? (
+            <div className="text-center py-10">
+              <Building className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <h3 className="text-lg font-medium mb-1">No suppliers found</h3>
+              <p className="text-muted-foreground">
+                {searchQuery ? "No suppliers match your search criteria" : "Add your first supplier to get started"}
+              </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Rating</TableHead>
-                  <TableHead>Products</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSuppliers.length > 0 ? (
-                  filteredSuppliers.map((supplier) => (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[250px]">Supplier</TableHead>
+                    <TableHead>Products</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Lead Time</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredSuppliers.map((supplier) => (
                     <TableRow key={supplier.id}>
-                      <TableCell className="font-medium">{supplier.name}</TableCell>
-                      <TableCell>
-                        <div>{supplier.contact_person}</div>
-                        <div className="text-sm text-muted-foreground">{supplier.email}</div>
-                      </TableCell>
-                      <TableCell>
-                        {supplier.is_active ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800">
-                            Inactive
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex">
-                          {renderRatingStars(supplier.rating)}
+                      <TableCell className="font-medium">
+                        <div className="flex flex-col">
+                          <span>{supplier.name}</span>
+                          <span className="text-xs text-muted-foreground">{supplier.website ? supplier.website : "No website"}</span>
                         </div>
                       </TableCell>
                       <TableCell>{supplier.product_count}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleEditSupplier(supplier.id)}
-                          >
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteSupplier(supplier.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleViewDetails(supplier.id)}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                            <span className="sr-only">View details</span>
-                          </Button>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-sm">{supplier.email}</span>
+                          </div>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-sm">{supplier.phone_number}</span>
+                          </div>
                         </div>
                       </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6">
-                      <div className="flex flex-col items-center justify-center text-center">
-                        <div className="rounded-full bg-muted p-3">
-                          <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Map className="h-4 w-4 text-muted-foreground" />
+                          <span>{supplier.city}, {supplier.country || 'Unknown'}</span>
                         </div>
-                        <h3 className="mt-4 text-lg font-medium">No suppliers found</h3>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {searchQuery ? "Try adjusting your search query" : "Add your first supplier to get started"}
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                      </TableCell>
+                      <TableCell>{supplier.lead_time} days</TableCell>
+                      <TableCell>
+                        {supplier.is_active ? (
+                          <Badge className="bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300">Active</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                            <DropdownMenuItem>Edit Supplier</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>View Products</DropdownMenuItem>
+                            <DropdownMenuItem>Create Purchase Order</DropdownMenuItem>
+                            <DropdownMenuItem>Contact History</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

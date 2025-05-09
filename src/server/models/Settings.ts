@@ -1,29 +1,32 @@
 
-import mongoose, { Schema, Document, Model } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ISettings extends Document {
   key: string;
   value: any;
   category: string;
   description?: string;
-  is_system?: boolean;
-  updated_by?: string;
-  created_at?: Date;
-  updated_at?: Date;
+  is_system: boolean;
+  updated_by: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
-const settingsSchema = new Schema<ISettings>(
-  {
-    key: { type: String, required: true, unique: true },
-    value: { type: Schema.Types.Mixed, required: true },
-    category: { type: String, required: true, default: 'general' },
-    description: { type: String },
-    is_system: { type: Boolean, default: false },
-    updated_by: { type: String }
-  },
-  { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
-);
+const SettingsSchema: Schema = new Schema({
+  key: { type: String, required: true, unique: true },
+  value: { type: Schema.Types.Mixed, required: true },
+  category: { type: String, required: true, default: 'general' },
+  description: { type: String },
+  is_system: { type: Boolean, default: false },
+  updated_by: { type: String, default: 'system' },
+  created_at: { type: Date, default: Date.now },
+  updated_at: { type: Date, default: Date.now }
+});
 
-const Settings: Model<ISettings> = mongoose.model<ISettings>('Settings', settingsSchema);
+// Update the updated_at field on save
+SettingsSchema.pre('save', function(next) {
+  this.updated_at = new Date();
+  next();
+});
 
-export default Settings;
+export default mongoose.model<ISettings>('Settings', SettingsSchema);

@@ -131,11 +131,11 @@ async function createAlertInDatabase(product: any, daysUntilExpiry: number) {
 async function notifyLowStockProducts() {
   try {
     // Find products with quantity below reorder level
-    // Fix: Using SQL comparison in the filter instead of raw()
+    // Fix: Using the correct method for comparing numeric columns
     const { data: lowStockProducts, error } = await supabase
       .from("products")
       .select("*, suppliers(email, phone_number, name)")
-      .filter('quantity', 'lt', 'reorder_level');  // Using filter instead of raw
+      .lt('quantity', supabase.rpc('get_reorder_level', { product_id: 'id' }));
 
     if (error) throw error;
 
@@ -226,7 +226,7 @@ async function recommendInventoryTransfers() {
     const { data: lowStockProducts, error: productError } = await supabase
       .from("products")
       .select("*")
-      .filter('quantity', 'lt', 'reorder_level');  // Using filter instead of raw
+      .lt('quantity', 'reorder_level');
     
     if (productError) throw productError;
     
@@ -244,7 +244,7 @@ async function recommendInventoryTransfers() {
         .select("*")
         .eq("name", product.name)
         .neq("location", product.location)
-        .filter('quantity', 'gt', 'reorder_level');  // Using filter instead of raw
+        .gt('quantity', 'reorder_level');
       
       if (excessError) throw excessError;
       

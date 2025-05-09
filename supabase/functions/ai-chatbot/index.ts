@@ -1,11 +1,10 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "AIzaSyBEH2mYFm2r8NTsfbPGea4vXY3QMF5xrJY";
 
 // Sample knowledge base for pharmacy inventory management
 const knowledgeBase = {
@@ -89,41 +88,39 @@ serve(async (req) => {
       );
     }
     
-    // Otherwise, use Gemini API for a more dynamic response
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `You are PharmaLink AI, a helpful pharmacy inventory assistant. Answer this question concisely and professionally: ${query}`
-                }
-              ]
-            }
-          ]
-        }),
-      }
-    );
+    // If no specific match in knowledge base, generate a contextual response
+    let response = "";
     
-    const data = await response.json();
-    
-    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-      throw new Error("Invalid response from Gemini API");
+    // Check for common greeting patterns
+    if (normalizedQuery.includes("hello") || normalizedQuery.includes("hi") || normalizedQuery.includes("hey")) {
+      response = "Hello! How can I assist you with your pharmacy inventory management today?";
+    } 
+    // Check for help-related queries
+    else if (normalizedQuery.includes("help") || normalizedQuery.includes("assist")) {
+      response = "I can help you with inventory management, products, transfers, settings, and reporting features. What specific area do you need assistance with?";
     }
-    
-    const aiResponse = data.candidates[0].content.parts[0].text;
+    // Check for inventory-related queries
+    else if (normalizedQuery.includes("inventory") || normalizedQuery.includes("stock")) {
+      response = "Our inventory management system helps you track products across locations, monitor stock levels, and receive alerts. You can manage your inventory from the Products section.";
+    }
+    // Check for reporting queries
+    else if (normalizedQuery.includes("report") || normalizedQuery.includes("analytics")) {
+      response = "PharmaLink offers comprehensive reporting features including inventory status, expiry tracking, transaction history, and AI-powered Smart Reports to help you make data-driven decisions.";
+    }
+    // Check for transfer-related queries
+    else if (normalizedQuery.includes("transfer") || normalizedQuery.includes("move")) {
+      response = "You can transfer products between locations through the Transfers section. Simply select source and destination locations, add products with quantities, and submit the transfer request.";
+    }
+    // General fallback response
+    else {
+      response = "I'm here to help with your pharmacy inventory management questions. You can ask about products, inventory, transfers, reports, or settings. How can I assist you today?";
+    }
     
     return new Response(
       JSON.stringify({
         success: true,
-        response: aiResponse,
-        source: "gemini"
+        response: response,
+        source: "generated"
       }),
       {
         headers: { "Content-Type": "application/json", ...corsHeaders },
