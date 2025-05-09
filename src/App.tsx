@@ -28,6 +28,7 @@ import Reorder from "./pages/Reorder";
 import AuthGuard from "@/guards/AuthGuard";
 import MainLayout from "./components/layout/MainLayout";
 import AIFeatures from "./pages/AIFeatures";
+import PurchaseOrders from "./pages/PurchaseOrders";
 
 function App() {
   return (
@@ -55,6 +56,7 @@ function App() {
                 <Route path="/users" element={<Users />} />
                 <Route path="/reorder" element={<Reorder />} />
                 <Route path="/ai-features" element={<AIFeatures />} />
+                <Route path="/purchase-orders" element={<PurchaseOrders />} />
               </Route>
             </Route>
             

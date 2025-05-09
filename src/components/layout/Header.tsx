@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { 
   Bell, 
@@ -7,7 +7,8 @@ import {
   LogOut,
   MenuIcon, 
   Search,
-  UserCircle
+  UserCircle,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import MobileSidebar from "./MobileSidebar";
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -28,6 +30,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const { user, logout } = useAuth();
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 sm:px-6">
@@ -35,15 +38,20 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         variant="ghost" 
         size="icon" 
         className="md:hidden"
-        onClick={toggleSidebar}
+        onClick={() => setShowMobileSidebar(true)}
       >
         <MenuIcon className="h-5 w-5" />
         <span className="sr-only">Toggle sidebar</span>
       </Button>
 
+      <MobileSidebar 
+        isOpen={showMobileSidebar} 
+        onClose={() => setShowMobileSidebar(false)} 
+      />
+
       <div className="md:hidden flex items-center gap-2">
-        <FileBox className="h-5 w-5 text-pharma-600" />
-        <span className="text-base font-semibold bg-gradient-to-r from-pharma-600 to-pharma-800 bg-clip-text text-transparent">
+        <FileBox className="h-5 w-5 text-primary" />
+        <span className="text-base font-semibold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
           PharmaLink
         </span>
       </div>
@@ -55,7 +63,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             <Input
               type="search"
               placeholder="Search..."
-              className="w-full bg-background pl-8 focus-visible:ring-pharma-500"
+              className="w-full bg-background pl-8"
             />
           </div>
         </form>

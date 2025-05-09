@@ -108,7 +108,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       if (data.user) {
         toast.success('Logged in successfully');
-        // Don't use navigate here, we'll handle navigation in the protected components
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -144,7 +143,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
         
         toast.success('Account created successfully! Please check your email to confirm your account.');
-        // Don't use navigate here, we'll handle navigation in the components
       }
     } catch (error) {
       console.error('Signup error:', error);
@@ -165,7 +163,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsAuthenticated(false);
       setSession(null);
       toast.info('Logged out successfully');
-      // Don't use navigate here
     } catch (error) {
       console.error('Logout error:', error);
       toast.error(error instanceof Error ? error.message : 'Logout failed');
