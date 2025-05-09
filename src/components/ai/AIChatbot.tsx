@@ -15,6 +15,7 @@ interface Message {
   timestamp: Date;
 }
 
+// The API key should be managed securely in a production environment
 const GEMINI_API_KEY = "AIzaSyBEH2mYFm2r8NTsfbPGea4vXY3QMF5xrJY";
 
 const AIChatbot: React.FC = () => {
@@ -70,6 +71,11 @@ const AIChatbot: React.FC = () => {
               ]
             }
           ]
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
         }
       );
 
@@ -86,7 +92,7 @@ const AIChatbot: React.FC = () => {
       } else {
         throw new Error("Invalid response format from API");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending message:", error);
       toast.error(`Couldn't get a response: ${error.message || "Unknown error"}`);
       

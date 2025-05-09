@@ -1,8 +1,8 @@
 
-import express, { Request, Response, Router } from 'express';
-import Supplier, { ISupplier } from '../models/Supplier';
+import express, { Request, Response } from 'express';
+import Supplier from '../models/Supplier';
 
-const router: Router = express.Router();
+const router = express.Router();
 
 // Get all suppliers
 router.get('/', async (_req: Request, res: Response) => {

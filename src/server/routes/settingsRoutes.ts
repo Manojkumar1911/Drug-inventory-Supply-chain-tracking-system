@@ -1,8 +1,8 @@
 
-import express, { Request, Response, Router } from 'express';
-import Settings, { ISettings } from '../models/Settings';
+import express, { Request, Response } from 'express';
+import Settings from '../models/Settings';
 
-const router: Router = express.Router();
+const router = express.Router();
 
 // Get all settings
 router.get('/', async (_req: Request, res: Response) => {

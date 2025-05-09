@@ -1,104 +1,115 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from "@/components/ui/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Building, ChevronRight, Edit, Phone, PlusCircle, Search, Truck, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { PlusCircle, Search, Edit, Trash2, Star, ChevronRight, AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
-// Mock suppliers data
-const suppliersData = [
-  {
-    id: 1,
-    name: "MediPharm Inc.",
-    contactPerson: "Sarah Johnson",
-    phone: "(617) 555-7890",
-    email: "sarah.j@medipharm.com",
-    address: "123 Pharma Avenue, Boston, MA 02108",
-    isActive: true,
-    productsSupplied: 128,
-    leadTime: 7,
-    rating: 5
-  },
-  {
-    id: 2,
-    name: "Global Health Supplies",
-    contactPerson: "Michael Chen",
-    phone: "(617) 555-3456",
-    email: "m.chen@globalhealthsupplies.com",
-    address: "456 Medical Drive, Cambridge, MA 02139",
-    isActive: true,
-    productsSupplied: 92,
-    leadTime: 10,
-    rating: 4
-  },
-  {
-    id: 3,
-    name: "Pharmatech Solutions",
-    contactPerson: "David Wilson",
-    phone: "(617) 555-2345",
-    email: "david@pharmatechsolutions.com",
-    address: "789 Research Blvd, Waltham, MA 02451",
-    isActive: true,
-    productsSupplied: 76,
-    leadTime: 14,
-    rating: 3
-  },
-  {
-    id: 4,
-    name: "MedLogistics Corp",
-    contactPerson: "Jennifer Lopez",
-    phone: "(617) 555-8765",
-    email: "jlopez@medlogistics.com",
-    address: "101 Supply Chain Road, Quincy, MA 02169",
-    isActive: false,
-    productsSupplied: 0,
-    leadTime: 21,
-    rating: 2
-  },
-  {
-    id: 5,
-    name: "BioCare Distributors",
-    contactPerson: "Robert Smith",
-    phone: "(617) 555-4321",
-    email: "rsmith@biocare.com",
-    address: "202 Health Street, Newton, MA 02458",
-    isActive: true,
-    productsSupplied: 113,
-    leadTime: 5,
-    rating: 5
-  }
-];
+interface Supplier {
+  id: string;
+  name: string;
+  contact_person: string;
+  email: string;
+  phone_number: string;
+  address: string;
+  is_active: boolean;
+  rating: number;
+  product_count?: number;
+}
 
-const Suppliers = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  
-  const filteredSuppliers = suppliersData.filter(supplier => 
-    supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    supplier.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
+const Suppliers: React.FC = () => {
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    loadSuppliers();
+  }, []);
+
+  const loadSuppliers = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch suppliers from Supabase
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('*');
+
+      if (error) throw error;
+
+      // For demo purposes add product count
+      const suppliersWithProductCount = (data || []).map(supplier => ({
+        ...supplier,
+        product_count: Math.floor(Math.random() * 50) + 5, // Random number between 5 and 55
+      }));
+
+      setSuppliers(suppliersWithProductCount as Supplier[]);
+    } catch (error: any) {
+      console.error("Error loading suppliers:", error);
+      toast.error("Failed to load suppliers");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddSupplier = () => {
+    toast.info("Add supplier functionality will be implemented here");
+  };
+
+  const handleEditSupplier = (id: string) => {
+    toast.info(`Edit supplier with ID: ${id}`);
+  };
+
+  const handleDeleteSupplier = (id: string) => {
+    toast.info(`Delete supplier with ID: ${id}`);
+  };
+
+  const handleViewDetails = (id: string) => {
+    toast.info(`View details for supplier with ID: ${id}`);
+  };
+
+  const filteredSuppliers = suppliers.filter(supplier => 
+    supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    supplier.contact_person.toLowerCase().includes(searchQuery.toLowerCase()) ||
     supplier.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  
-  const totalActiveSuppliers = suppliersData.filter(s => s.isActive).length;
-  const totalProducts = suppliersData.reduce((sum, supplier) => sum + supplier.productsSupplied, 0);
-  const averageLeadTime = suppliersData.reduce((sum, supplier) => sum + supplier.leadTime, 0) / suppliersData.length;
-  
-  const getRatingStars = (rating: number) => {
-    return "★".repeat(rating) + "☆".repeat(5 - rating);
+
+  const renderRatingStars = (rating: number) => {
+    return Array(5)
+      .fill(0)
+      .map((_, index) => (
+        <Star 
+          key={index} 
+          className={`h-4 w-4 ${index < rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"}`} 
+        />
+      ));
   };
-  
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <div>
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Suppliers</h1>
-        <Button className="flex items-center gap-2">
+        <Button className="flex items-center gap-2" onClick={handleAddSupplier}>
           <PlusCircle className="h-4 w-4" />
           Add Supplier
         </Button>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Suppliers
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{suppliers.length}</div>
+          </CardContent>
+        </Card>
+        
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -106,9 +117,8 @@ const Suppliers = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <Building className="h-5 w-5 text-primary mr-2" />
-              <span className="text-2xl font-bold">{totalActiveSuppliers}</span>
+            <div className="text-2xl font-bold">
+              {suppliers.filter(s => s.is_active).length}
             </div>
           </CardContent>
         </Card>
@@ -116,27 +126,12 @@ const Suppliers = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Products Supplied
+              Total Products From Suppliers
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <Truck className="h-5 w-5 text-pharma-600 mr-2" />
-              <span className="text-2xl font-bold">{totalProducts}</span>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Average Lead Time
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center">
-              <Phone className="h-5 w-5 text-success mr-2" />
-              <span className="text-2xl font-bold">{averageLeadTime.toFixed(1)} days</span>
+            <div className="text-2xl font-bold">
+              {suppliers.reduce((sum, supplier) => sum + (supplier.product_count || 0), 0)}
             </div>
           </CardContent>
         </Card>
@@ -144,7 +139,7 @@ const Suppliers = () => {
       
       <Card>
         <CardHeader>
-          <CardTitle>Manage Suppliers</CardTitle>
+          <CardTitle className="text-lg font-medium">Manage Suppliers</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative mb-4">
@@ -158,64 +153,98 @@ const Suppliers = () => {
             />
           </div>
           
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Products</TableHead>
-                <TableHead>Lead Time</TableHead>
-                <TableHead>Rating</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSuppliers.map((supplier) => (
-                <TableRow key={supplier.id}>
-                  <TableCell className="font-medium">{supplier.name}</TableCell>
-                  <TableCell>
-                    <div>{supplier.contactPerson}</div>
-                    <div className="text-sm text-muted-foreground">{supplier.email}</div>
-                  </TableCell>
-                  <TableCell>{supplier.productsSupplied}</TableCell>
-                  <TableCell>{supplier.leadTime} days</TableCell>
-                  <TableCell>
-                    <span className={`text-sm ${supplier.rating >= 4 ? 'text-amber-500' : supplier.rating >= 3 ? 'text-amber-400' : 'text-gray-400'}`}>
-                      {getRatingStars(supplier.rating)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {supplier.isActive ? (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800">
-                        Inactive
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon">
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Edit</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete</span>
-                      </Button>
-                      <Button variant="ghost" size="icon">
-                        <ChevronRight className="h-4 w-4" />
-                        <span className="sr-only">View details</span>
-                      </Button>
-                    </div>
-                  </TableCell>
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mb-2"></div>
+              <p className="text-sm text-muted-foreground">Loading suppliers...</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Rating</TableHead>
+                  <TableHead>Products</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredSuppliers.length > 0 ? (
+                  filteredSuppliers.map((supplier) => (
+                    <TableRow key={supplier.id}>
+                      <TableCell className="font-medium">{supplier.name}</TableCell>
+                      <TableCell>
+                        <div>{supplier.contact_person}</div>
+                        <div className="text-sm text-muted-foreground">{supplier.email}</div>
+                      </TableCell>
+                      <TableCell>
+                        {supplier.is_active ? (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800">
+                            Inactive
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex">
+                          {renderRatingStars(supplier.rating)}
+                        </div>
+                      </TableCell>
+                      <TableCell>{supplier.product_count}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleEditSupplier(supplier.id)}
+                          >
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteSupplier(supplier.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleViewDetails(supplier.id)}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                            <span className="sr-only">View details</span>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-6">
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <div className="rounded-full bg-muted p-3">
+                          <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <h3 className="mt-4 text-lg font-medium">No suppliers found</h3>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {searchQuery ? "Try adjusting your search query" : "Add your first supplier to get started"}
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

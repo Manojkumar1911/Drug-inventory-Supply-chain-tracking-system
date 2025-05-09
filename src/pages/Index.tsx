@@ -3,8 +3,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import LandingNav from '@/components/layout/LandingNav';
 import { Button } from "@/components/ui/button";
-import { useAuth } from '@/context/AuthContext'; // Fixed import path
+import { useAuth } from '@/context/AuthContext';
 import { CheckCircle } from "lucide-react";
+import { ContainerScroll } from '@/components/ui/container-scroll';
 
 const Index: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -47,19 +48,17 @@ const Index: React.FC = () => {
           </div>
           
           <div className="flex-1 relative">
-            <div className="w-full h-[400px] relative">
-              <div className="absolute inset-0 bg-blue-600 rounded-lg blur-md opacity-20"></div>
-              <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-2xl">
-                <img 
-                  src="https://pharmainventorytracker.vercel.app/dashboard-preview.png" 
-                  alt="Dashboard Preview" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="absolute -bottom-6 -right-6 h-24 w-24 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg animate-pulse">
-                AI-Powered
-              </div>
-            </div>
+            <ContainerScroll
+              titleComponent={
+                <h2 className="text-2xl font-bold mb-4 text-center">Dashboard Preview</h2>
+              }
+            >
+              <img 
+                src="/lovable-uploads/62e8e4c7-dd8f-422f-b652-1fbc319f4492.png" 
+                alt="Dashboard Preview" 
+                className="w-full h-full object-contain"
+              />
+            </ContainerScroll>
           </div>
         </section>
         
@@ -167,7 +166,6 @@ const Index: React.FC = () => {
         </div>
       </footer>
       
-      {/* Remove JSX style attribute - use regular style element instead */}
       <style>
         {`
         @keyframes float {

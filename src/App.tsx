@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
 
@@ -19,6 +19,8 @@ import Alerts from './pages/Alerts';
 import AIFeatures from './pages/AIFeatures';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
+import Users from './pages/Users';
+import Suppliers from './pages/Suppliers';
 import MainLayout from './components/layout/MainLayout';
 import FloatingChatButton from './components/ai/FloatingChatButton';
 import { AuthProvider } from './context/AuthContext';
@@ -52,6 +54,8 @@ const App: React.FC = () => {
                 <Route path="/ai-features" element={<AIFeatures />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/users" element={<Users />} />
+                <Route path="/suppliers" element={<Suppliers />} />
               </Route>
             </Route>
             

@@ -1,8 +1,8 @@
 
-import express, { Request, Response, Router } from 'express';
-import Product, { IProduct } from '../models/Product';
+import express, { Request, Response } from 'express';
+import Product from '../models/Product';
 
-const router: Router = express.Router();
+const router = express.Router();
 
 // Get all products
 router.get('/', async (_req: Request, res: Response) => {
