@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import LandingNav from '@/components/layout/LandingNav';
 import { Button } from "@/components/ui/button";
-import { useAuth } from '@/App';
+import { useAuth } from '@/context/AuthContext'; // Fixed import path
 import { CheckCircle } from "lucide-react";
 
 const Index: React.FC = () => {

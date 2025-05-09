@@ -21,7 +21,7 @@ import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import MainLayout from './components/layout/MainLayout';
 import FloatingChatButton from './components/ai/FloatingChatButton';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import AuthGuard from './guards/AuthGuard';
 import GuestGuard from './guards/GuestGuard';
 
