@@ -6,7 +6,7 @@ import Supplier from '../models/Supplier';
 const router = express.Router();
 
 // Get all suppliers
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     const suppliers = await Supplier.find();
     return res.status(200).json(suppliers);

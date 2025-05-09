@@ -1,96 +1,159 @@
 
 import React from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, FileBox, Shield, Sparkles, BarChart4, Package, Bell, Boxes, Brain, Bot, CheckCircle } from "lucide-react";
+import { ArrowRight, FileBox, Shield, Sparkles, BarChart4, Package, Bot, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LandingNav from "@/components/layout/LandingNav";
+import { cn } from "@/lib/utils";
+import FloatingChatButton from "@/components/ai/FloatingChatButton";
+
+// Aceternity UI inspired components
+const AnimatedBackground = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <div className="relative w-full">
+      <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-blue-50 via-transparent to-blue-50 dark:from-blue-900/20 dark:via-transparent dark:to-blue-900/20" />
+      <div className="absolute inset-0 h-full w-full bg-grid-black/[0.2] dark:bg-grid-white/[0.2]" />
+      <div className="absolute inset-0 h-full w-full bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10" />
+      {children}
+    </div>
+  );
+};
+
+const SparkleBadge = ({ text }: { text: string }) => {
+  return (
+    <div className="relative inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-blue-600 dark:text-blue-400 overflow-hidden">
+      <span className="relative z-20 whitespace-nowrap">{text}</span>
+      <span className="absolute inset-0 z-10 bg-[radial-gradient(circle_at_30%_50%,rgba(129,140,248,0.2),transparent_50%)]" />
+      <span className="absolute z-10 -left-2 -top-10 h-[400%] aspect-square rounded-full bg-gradient-to-tr from-blue-600 to-transparent opacity-30 blur-lg" />
+    </div>
+  );
+};
+
+const HoverGlowCard = ({ children, className }: { children: React.ReactNode, className?: string }) => {
+  return (
+    <div className={cn(
+      "group relative rounded-xl border border-white/20 bg-white/5 backdrop-blur-xl px-8 py-10 shadow-lg transition-all duration-500 hover:border-white/40 hover:shadow-blue-500/20",
+      className
+    )}>
+      <div className="absolute inset-0 -z-10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-blue-500/20 via-transparent to-purple-500/20 blur-xl" />
+      {children}
+    </div>
+  );
+};
+
+const ScrollRevealContainer = ({ children, className, delay = 0 }: { children: React.ReactNode, className?: string, delay?: number }) => {
+  return (
+    <div 
+      className={cn("opacity-0", className)} 
+      style={{ 
+        transform: "translateY(20px)",
+        animation: `fadeInUp 0.8s ease forwards ${delay}s` 
+      }}
+    >
+      {children}
+      <style jsx>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
 
 const Index = () => {
   return (
-    <div className="min-h-screen font-sans bg-gradient-to-b from-background to-background/90">
-      <LandingNav />
+    <div className="font-sans">
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        
+        :root {
+          --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        
+        html {
+          font-family: var(--font-sans);
+        }
+      `}</style>
       
-      {/* Hero Section with 3D Effect */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-pharma-600/10 to-pharma-800/10 backdrop-blur-3xl z-0" />
-        <div className="container mx-auto px-4 pt-32 pb-16 relative z-10">
+      <LandingNav />
+      <FloatingChatButton />
+      
+      {/* Hero Section with Aceternity UI Inspired Animation */}
+      <AnimatedBackground>
+        <div className="container mx-auto px-4 pt-32 pb-20 relative z-10">
           <div className="flex flex-col lg:flex-row items-center gap-12 mb-24">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-6">
-                <FileBox className="h-8 w-8 text-primary" />
-                <span className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
-                  PharmaLink
-                </span>
-              </div>
-              <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-                <span className="bg-gradient-to-r from-primary via-blue-500 to-purple-500 bg-clip-text text-transparent">
-                  Streamline your pharmacy
-                </span>
-                <br />
-                <span className="text-foreground">
-                  inventory with AI
-                </span>
-              </h1>
-              <p className="text-xl text-muted-foreground max-w-2xl mb-8 leading-relaxed">
-                We're revolutionizing the way you handle pharmacy management and logistics. 
-                Say goodbye to complexities of inventory tracking and hello to efficiency, accuracy, and cost savings.
-              </p>
-              <div className="flex flex-wrap gap-4">
+              <SparkleBadge text="AI-Powered Pharmacy Management" />
+              
+              <ScrollRevealContainer delay={0.2}>
+                <h1 className="text-5xl md:text-6xl font-bold mt-6 mb-6 leading-tight">
+                  <span className="inline-block bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">
+                    Next-Gen Pharmacy
+                  </span>
+                  <br />
+                  <span className="text-foreground">
+                    Inventory System
+                  </span>
+                </h1>
+              </ScrollRevealContainer>
+              
+              <ScrollRevealContainer delay={0.4}>
+                <p className="text-xl text-muted-foreground max-w-2xl mb-8 leading-relaxed">
+                  Revolutionize your pharmacy operations with our AI-powered inventory management platform. 
+                  Increase efficiency, reduce waste, and stay ahead with smart analytics and predictive insights.
+                </p>
+              </ScrollRevealContainer>
+              
+              <ScrollRevealContainer delay={0.6} className="flex flex-wrap gap-4">
                 <Link to="/signup">
-                  <Button size="lg" className="bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-medium px-8 py-6 text-lg shadow-lg hover:shadow-xl">
+                  <Button size="lg" className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white font-medium px-8 py-6 text-lg shadow-lg hover:shadow-xl">
                     Get started for free
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
                 <Link to="/login">
                   <Button variant="outline" size="lg" className="bg-white/5 backdrop-blur-sm font-medium border-white/10 hover:bg-white/10 px-8 py-6 text-lg">
-                    Login
+                    Demo Login
                   </Button>
                 </Link>
-              </div>
+              </ScrollRevealContainer>
             </div>
-            <div className="flex-1 relative">
-              <div className="rounded-xl overflow-hidden shadow-2xl transform rotate-1 border border-gray-200 dark:border-gray-800">
-                <img 
-                  src="/lovable-uploads/21206511-7c47-44cf-893b-2a6de7d893fc.png" 
-                  alt="PharmaLink Dashboard" 
-                  className="w-full h-auto"
-                />
-              </div>
-              <div className="absolute -bottom-6 -left-6 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg transform rotate-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-                  <span className="font-medium">AI-Powered</span>
+            
+            <ScrollRevealContainer delay={0.8} className="flex-1 relative">
+              <div className="relative">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-violet-600 rounded-xl opacity-70 blur-lg"></div>
+                <div className="relative rounded-xl overflow-hidden shadow-2xl border border-white/10 bg-background/80 backdrop-blur-sm">
+                  <img 
+                    src="/lovable-uploads/21206511-7c47-44cf-893b-2a6de7d893fc.png" 
+                    alt="PharmaLink Dashboard" 
+                    className="w-full h-auto"
+                  />
+                </div>
+                <div className="absolute -bottom-6 -right-6 bg-gradient-to-r from-blue-600 to-violet-600 text-white px-4 py-2 rounded-lg shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5" />
+                    <span className="font-medium">AI-Powered Insights</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </ScrollRevealContainer>
           </div>
 
-          {/* Stats Section */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16 mt-20">
-            {[
-              { number: "99.9%", label: "Inventory Accuracy" },
-              { number: "60%", label: "Time Saved" },
-              { number: "24/7", label: "Monitoring" },
-              { number: "1000+", label: "Active Pharmacies" }
-            ].map((stat, index) => (
-              <div key={index} className="text-center p-6 rounded-lg bg-white/5 backdrop-blur-lg border border-white/10">
-                <div className="text-4xl font-bold bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent mb-2">
-                  {stat.number}
-                </div>
-                <div className="text-muted-foreground">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-          
           {/* Features Section */}
-          <div className="mb-20">
+          <ScrollRevealContainer className="mb-20" delay={1.0}>
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Designed for modern pharmacies
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">Modern solutions</span> for modern pharmacies
               </h2>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Our comprehensive set of features helps you manage your inventory with ease
+                Our comprehensive set of features helps you manage your inventory with intelligence and precision
               </p>
             </div>
             
@@ -99,162 +162,64 @@ const Index = () => {
                 {
                   icon: Package,
                   title: "Smart Inventory",
-                  description: "AI-powered inventory tracking and management system with automated reordering suggestions"
+                  description: "AI-powered inventory tracking with automated reordering suggestions based on historical data and trends"
+                },
+                {
+                  icon: Shield,
+                  title: "Expiry Prevention",
+                  description: "Proactively identify expiring products and optimize inventory to reduce waste and financial loss"
                 },
                 {
                   icon: BarChart4,
                   title: "Real-time Analytics",
-                  description: "Live monitoring and predictive analytics to optimize your stock levels and reduce waste"
-                },
-                {
-                  icon: Bell,
-                  title: "Instant Alerts",
-                  description: "Receive notifications for low stock, expiring products, and transfer opportunities"
-                },
-                {
-                  icon: Shield,
-                  title: "Secure Data",
-                  description: "Enterprise-grade security ensures your inventory data is always protected"
-                },
-                {
-                  icon: Brain,
-                  title: "AI Smart Reports",
-                  description: "Intelligent reporting that provides actionable insights based on your inventory data"
+                  description: "Live monitoring and predictive analytics that optimize stock levels across multiple locations"
                 },
                 {
                   icon: Bot,
                   title: "AI Assistant",
-                  description: "Get instant answers to your questions with our smart AI chatbot assistant"
+                  description: "Intelligent chatbot that provides insights, answers questions, and suggests optimization strategies"
+                },
+                {
+                  icon: Sparkles,
+                  title: "Smart Reports",
+                  description: "Generate detailed business intelligence reports with actionable insights based on your inventory data"
+                },
+                {
+                  icon: FileBox,
+                  title: "Transfer Management",
+                  description: "Seamlessly transfer inventory between locations with full tracking and audit capabilities"
                 }
               ].map((feature, index) => (
-                <div 
-                  key={index}
-                  className="group bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-8 shadow-lg transition-all duration-500 hover:shadow-xl hover:-translate-y-1 hover:bg-white/10"
-                >
-                  <div className="h-14 w-14 rounded-full bg-primary/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                    <feature.icon className="h-7 w-7 text-primary" />
+                <HoverGlowCard key={index}>
+                  <div className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-600/20 to-violet-600/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                    <feature.icon className="h-7 w-7 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <h3 className="text-xl font-bold mb-3">
+                  <h3 className="text-xl font-bold mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {feature.title}
                   </h3>
                   <p className="text-muted-foreground leading-relaxed">
                     {feature.description}
                   </p>
-                </div>
+                </HoverGlowCard>
               ))}
             </div>
-          </div>
+          </ScrollRevealContainer>
           
-          {/* How It Works Section */}
-          <div className="mb-20">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                How PharmaLink works
-              </h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Get started in minutes and transform your pharmacy operations
-              </p>
-            </div>
-            
-            <div className="grid gap-8 md:grid-cols-3">
-              {[
-                {
-                  step: "1",
-                  title: "Sign Up",
-                  description: "Create your account and set up your pharmacy profile in minutes"
-                },
-                {
-                  step: "2",
-                  title: "Import Inventory",
-                  description: "Upload your existing inventory or add products manually with our easy interface"
-                },
-                {
-                  step: "3",
-                  title: "Start Managing",
-                  description: "Begin tracking inventory, receiving alerts, and making data-driven decisions"
-                }
-              ].map((step, index) => (
-                <div 
-                  key={index}
-                  className="relative p-8 rounded-xl border border-white/10"
-                >
-                  <div className="absolute -top-5 -left-5 bg-primary text-white h-10 w-10 rounded-full flex items-center justify-center font-bold text-lg">
-                    {step.step}
-                  </div>
-                  <h3 className="text-xl font-bold mb-3 mt-4">
-                    {step.title}
-                  </h3>
-                  <p className="text-muted-foreground">
-                    {step.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* Testimonials */}
-          <div className="mb-20">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Trusted by pharmacists
-              </h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                See what our clients are saying about PharmaLink
-              </p>
-            </div>
-            
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {[
-                {
-                  quote: "PharmaLink has completely transformed how we manage our inventory. The AI features are incredibly helpful.",
-                  name: "Sarah Johnson",
-                  title: "Head Pharmacist, MediCare Plus"
-                },
-                {
-                  quote: "The expiry alerts have saved us thousands of dollars in potential waste. This system pays for itself.",
-                  name: "Michael Chang",
-                  title: "Owner, Family Pharmacy"
-                },
-                {
-                  quote: "I can't imagine going back to our old system. The analytics alone make PharmaLink worth every penny.",
-                  name: "Priya Patel",
-                  title: "Pharmacy Manager, HealthFirst"
-                }
-              ].map((testimonial, index) => (
-                <div 
-                  key={index}
-                  className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-8 shadow-lg"
-                >
-                  <div className="mb-4 text-primary">
-                    <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M14.017 18L14.017 10.609C14.017 4.905 17.748 1.039 23 0L23.995 2.151C21.563 3.068 20 5.789 20 8H24V18H14.017ZM0 18V10.609C0 4.905 3.748 1.039 9 0L9.996 2.151C7.563 3.068 6 5.789 6 8H9.983L9.983 18L0 18Z" />
-                    </svg>
-                  </div>
-                  <p className="mb-6 text-lg">"{testimonial.quote}"</p>
-                  <div>
-                    <p className="font-medium">{testimonial.name}</p>
-                    <p className="text-sm text-muted-foreground">{testimonial.title}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* CTA Section */}
-          <div className="flex flex-col items-center mt-16">
-            <div className="w-full max-w-5xl p-12 rounded-2xl bg-gradient-to-br from-blue-600/10 via-blue-700/5 to-transparent border border-white/10 backdrop-blur-md">
+          <ScrollRevealContainer className="flex flex-col items-center mt-16" delay={1.2}>
+            <div className="w-full max-w-5xl p-12 rounded-2xl bg-gradient-to-br from-blue-600/10 via-violet-500/5 to-transparent border border-white/10 backdrop-blur-md">
               <div className="flex flex-col md:flex-row gap-12 items-center">
                 <div className="flex-1">
                   <h2 className="text-4xl font-bold mb-6">
-                    Ready to transform your pharmacy management?
+                    Experience the future of pharmacy management
                   </h2>
                   <p className="text-lg text-muted-foreground mb-8 max-w-lg">
-                    Join thousands of pharmacists already using PharmaLink to streamline their operations and improve efficiency.
+                    Join innovative pharmacies using PharmaLink to streamline operations, reduce costs, and provide better customer service.
                   </p>
                   <div className="flex flex-wrap gap-4">
                     <Link to="/signup">
-                      <Button size="lg" className="bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-medium">
-                        Get Started Free
+                      <Button size="lg" className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white font-medium">
+                        Try It Free
                         <ArrowRight className="ml-2 h-5 w-5" />
                       </Button>
                     </Link>
@@ -267,31 +232,31 @@ const Index = () => {
                 </div>
                 <div className="flex-1 flex flex-col gap-4">
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-primary" />
+                    <CheckCircle className="h-5 w-5 text-green-500" />
                     <span>No credit card required</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-primary" />
-                    <span>Free 30-day full-featured trial</span>
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span>Full-featured 30-day trial</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-primary" />
-                    <span>Easy setup - be running in minutes</span>
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span>AI-powered features included</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-primary" />
-                    <span>Priority support for new accounts</span>
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span>Data migration assistance</span>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </ScrollRevealContainer>
           
           {/* Footer */}
           <div className="mt-20 pt-12 border-t border-white/10">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="flex items-center gap-2 mb-4 md:mb-0">
-                <FileBox className="h-6 w-6 text-primary" />
+                <FileBox className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 <span className="text-xl font-bold">
                   PharmaLink
                 </span>
@@ -302,7 +267,7 @@ const Index = () => {
             </div>
           </div>
         </div>
-      </div>
+      </AnimatedBackground>
     </div>
   );
 };

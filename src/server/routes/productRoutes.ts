@@ -6,7 +6,7 @@ import Product from '../models/Product';
 const router = express.Router();
 
 // Get all products
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     const products = await Product.find();
     return res.status(200).json(products);

@@ -6,7 +6,7 @@ import Settings from '../models/Settings';
 const router = express.Router();
 
 // Get all settings
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     const settings = await Settings.find();
     return res.status(200).json(settings);

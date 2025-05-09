@@ -1,16 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.2.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "AIzaSyBEH2mYFm2r8NTsfbPGea4vXY3QMF5xrJY";
+
 // Sample knowledge base for pharmacy inventory management
 const knowledgeBase = {
   // General system questions
   "how to use": "Navigate through the sidebar menu to access different sections like Inventory, Transfers, and Reports. The dashboard gives you a quick overview of your pharmacy inventory status.",
-  "features": "PharmInventory system features include inventory tracking, transfer management, expiry date alerts, low stock notifications, reporting, and AI-assisted insights.",
+  "features": "PharmaLink system features include inventory tracking, transfer management, expiry date alerts, low stock notifications, reporting, and AI-assisted insights.",
   "dashboard": "The dashboard provides a summary of your inventory status, including low stock alerts, expiring items, and recent transfers.",
   
   // Inventory management
@@ -33,15 +34,6 @@ const knowledgeBase = {
   "generate report": "To generate reports, go to the Analytics page, select the report type, date range, and other filters, then click 'Generate Report'.",
   "export data": "To export data, generate the desired report first, then click the 'Export' button to download as CSV or PDF.",
   "smart reports": "Smart Reports use AI to analyze your inventory data and provide insights. Access them from the Analytics page under 'AI Smart Reports'.",
-  
-  // Locations
-  "add location": "To add a new location, go to the Locations page and click 'Add Location'. Enter the required details and save.",
-  "location types": "Location types include Pharmacy, Warehouse, Distribution Center, and Clinic. Each can have different settings.",
-  
-  // Users and permissions
-  "add user": "To add a new user, go to the Users page and click 'Add User'. Provide their email, assign a role, and they'll receive an invitation.",
-  "user roles": "User roles include Admin, Manager, Staff, and Viewer. Each role has different permissions within the system.",
-  "reset password": "Users can reset their password by clicking 'Forgot Password' on the login screen. Admins can also reset passwords from the Users page."
 };
 
 serve(async (req) => {
@@ -51,7 +43,6 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("GEMINI_API_KEY") || "AIzaSyBEH2mYFm2r8NTsfbPGea4vXY3QMF5xrJY";
     const { query } = await req.json();
     
     if (!query || typeof query !== "string") {
@@ -68,7 +59,6 @@ serve(async (req) => {
     }
     
     // First, check our knowledge base for specific answers
-    // Normalize the query by making it lowercase and removing extra spaces
     const normalizedQuery = query.toLowerCase().trim();
     
     // Find the best matching response from knowledge base
@@ -77,8 +67,6 @@ serve(async (req) => {
     
     for (const [key, value] of Object.entries(knowledgeBase)) {
       if (normalizedQuery.includes(key)) {
-        // Simple scoring based on the length of the matching key
-        // Longer matches are better as they're more specific
         const score = key.length;
         if (score > bestScore) {
           bestScore = score;
@@ -93,7 +81,6 @@ serve(async (req) => {
         JSON.stringify({
           success: true,
           response: bestMatch,
-          query: query,
           source: "knowledge_base"
         }),
         {
@@ -102,30 +89,41 @@ serve(async (req) => {
       );
     }
     
-    // Otherwise, use Gemini AI for a more dynamic response
-    const genAI = new GoogleGenerativeAI(apiKey);
+    // Otherwise, use Gemini API for a more dynamic response
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `You are PharmaLink AI, a helpful pharmacy inventory assistant. Answer this question concisely and professionally: ${query}`
+                }
+              ]
+            }
+          ]
+        }),
+      }
+    );
     
-    // For text-only input, use the gemini-pro model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const data = await response.json();
     
-    const systemPrompt = "You are an AI assistant for a pharmacy inventory management system called PharmaLink. " +
-      "Give brief, helpful responses about inventory management, product tracking, transfers, alerts, and reports. " +
-      "Keep answers concise (1-3 sentences) and focused specifically on pharmaceutical inventory management. " +
-      "If you don't know something specific about PharmaLink, suggest where the user might find that information in the app.";
+    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+      throw new Error("Invalid response from Gemini API");
+    }
     
-    const result = await model.generateContent([
-      systemPrompt,
-      `User question: ${query}`
-    ]);
-    
-    const response = result.response.text();
+    const aiResponse = data.candidates[0].content.parts[0].text;
     
     return new Response(
       JSON.stringify({
         success: true,
-        response: response,
-        query: query,
-        source: "ai"
+        response: aiResponse,
+        source: "gemini"
       }),
       {
         headers: { "Content-Type": "application/json", ...corsHeaders },
