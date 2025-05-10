@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from '@/context/AuthContext';
 import { CheckCircle, ArrowRight } from "lucide-react";
 import { ContainerScroll } from '@/components/ui/container-scroll';
-import { useTheme } from "@/components/ThemeProvider";
+
+// Import ThemeProvider
+import { useTheme } from "@/context/ThemeContext";
 
 const Index: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -52,10 +54,6 @@ const Index: React.FC = () => {
         
         <section className="py-16 relative">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/50 to-purple-100/50 dark:from-indigo-900/20 dark:to-purple-900/20 -z-10 rounded-3xl"></div>
-          
-          <div className="text-center mb-6">
-            <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Experience the Future of Pharmacy Management</h2>
-          </div>
           
           <ContainerScroll>
             <img 
