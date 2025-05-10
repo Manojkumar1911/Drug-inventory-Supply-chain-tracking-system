@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import { Download, Sparkles, Info, ArrowRight, TrendingUp, BarChart3, PieChart as PieChartIcon, Save } from "lucide-react";
-import { supabaseClient } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import SmartReportForecast from './SmartReportForecast';
 
 // Sample data for the reports
@@ -48,7 +48,7 @@ const SmartReports: React.FC = () => {
   const generateReport = async () => {
     setIsGenerating(true);
     try {
-      const { data, error } = await supabaseClient.functions.invoke('generate-smart-report', {
+      const { data, error } = await supabase.functions.invoke('generate-smart-report', {
         body: {
           reportType: reportType === "forecast" ? "inventory_summary" : reportType,
           timeframe: timeframe
