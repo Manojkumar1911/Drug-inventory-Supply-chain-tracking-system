@@ -63,16 +63,19 @@ serve(async (req) => {
     
     console.log("Sending email with data:", JSON.stringify(emailData, null, 2));
 
-    // For testing purposes, we'll just log the email data instead of sending it
-    // In a real environment, you would use the Resend API to send the email
-    // const { data, error } = await resend.emails.send(emailData);
+    // Uncomment this to actually send the email
+    const { data, error } = await resend.emails.send(emailData);
     
+    if (error) {
+      throw new Error(`Failed to send email: ${error.message}`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Alert email would be sent in production environment",
+        message: "Alert email sent successfully",
         emailData,
-        note: "Email sending is simulated for testing; in production, uncomment the resend.emails.send line"
+        data
       }),
       {
         status: 200,

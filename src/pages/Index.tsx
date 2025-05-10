@@ -4,11 +4,13 @@ import { Link } from 'react-router-dom';
 import LandingNav from '@/components/layout/LandingNav';
 import { Button } from "@/components/ui/button";
 import { useAuth } from '@/context/AuthContext';
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, ArrowRight } from "lucide-react";
 import { ContainerScroll } from '@/components/ui/container-scroll';
+import { useTheme } from "@/components/ThemeProvider";
 
 const Index: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const { theme } = useTheme();
   
   // Features list for the landing page
   const features = [
@@ -21,25 +23,25 @@ const Index: React.FC = () => {
   ];
   
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 dark:from-background dark:to-background/90">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800">
       <LandingNav />
       
-      <main className="container mx-auto px-4 pt-20 pb-16">
-        <section className="flex flex-col lg:flex-row items-center gap-12 py-12">
+      <main className="container mx-auto px-4">
+        <section className="flex flex-col lg:flex-row items-center gap-12 py-24">
           <div className="flex-1 space-y-6">
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 leading-tight">
               Next-Gen Pharmacy Inventory Management
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 leading-relaxed">
               Streamline your pharmacy operations with our AI-powered inventory system. Reduce waste, prevent stockouts, and optimize your supply chain.
             </p>
             <div className="pt-4 flex flex-wrap gap-4">
-              <Button asChild size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
+              <Button asChild size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-6 text-lg rounded-xl">
                 <Link to={isAuthenticated ? "/dashboard" : "/signup"}>
                   {isAuthenticated ? "Go to Dashboard" : "Start Free Trial"}
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg">
+              <Button asChild variant="outline" size="lg" className="px-8 py-6 text-lg rounded-xl border-2">
                 <Link to="/login">
                   {isAuthenticated ? "View Account" : "Sign In"}
                 </Link>
@@ -47,18 +49,48 @@ const Index: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex-1 relative">
-            <ContainerScroll>
-              <img 
-                src="/lovable-uploads/62e8e4c7-dd8f-422f-b652-1fbc319f4492.png" 
-                alt="Dashboard Preview" 
-                className="w-full h-full object-cover"
-              />
-            </ContainerScroll>
+          <div className="flex-1 relative mt-8 lg:mt-0">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-3xl blur-3xl -z-10"></div>
+            <div className="relative z-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold mb-2 text-blue-800 dark:text-blue-300">PharmaLink Dashboard</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-3">A comprehensive overview of your pharmacy inventory</p>
+              <div className="overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700">
+                <img 
+                  src={theme === 'dark' 
+                    ? "/lovable-uploads/62e8e4c7-dd8f-422f-b652-1fbc319f4492.png" 
+                    : "/lovable-uploads/a88f661a-2129-404c-ae3d-11efedd9536c.png"} 
+                  alt="Dashboard Preview" 
+                  className="w-full h-auto rounded-lg shadow-md"
+                />
+              </div>
+            </div>
           </div>
         </section>
         
-        <section className="py-16">
+        <section className="py-16 relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-100/50 to-purple-100/50 dark:from-blue-900/20 dark:to-purple-900/20 -z-10"></div>
+          
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Experience the Future of Pharmacy Management</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+              Our intuitive dashboard puts all the information you need right at your fingertips
+            </p>
+          </div>
+          
+          <ContainerScroll>
+            <img 
+              src={theme === 'dark' 
+                ? "/lovable-uploads/62e8e4c7-dd8f-422f-b652-1fbc319f4492.png" 
+                : "/lovable-uploads/a88f661a-2129-404c-ae3d-11efedd9536c.png"} 
+              alt="Dashboard Preview" 
+              className="w-full h-full object-cover object-center"
+            />
+          </ContainerScroll>
+        </section>
+        
+        <section className="py-16 relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 -z-10"></div>
+          
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Why PharmaLink?</h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
@@ -68,7 +100,7 @@ const Index: React.FC = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <div key={index} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-shadow hover:border-blue-200 dark:hover:border-blue-800">
+              <div key={index} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow hover:border-blue-200 dark:hover:border-blue-800">
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
                   <p className="text-lg">{feature}</p>
@@ -78,8 +110,10 @@ const Index: React.FC = () => {
           </div>
         </section>
         
-        <section className="py-16">
-          <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 transition-all">
+        <section className="py-16 relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 -z-10"></div>
+          
+          <div className="max-w-4xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 transition-all">
             <div className="md:flex">
               <div className="md:flex-1 p-8">
                 <div className="uppercase tracking-wide text-sm text-blue-600 font-semibold">AI-Powered Features</div>
@@ -113,24 +147,31 @@ const Index: React.FC = () => {
                   </div>
                   <h3 className="text-xl font-bold">AI Assistant</h3>
                   <p className="text-blue-800 dark:text-blue-200">Get answers about your inventory, generate reports, and receive intelligent recommendations.</p>
+                  <Button asChild className="bg-blue-600 hover:bg-blue-700">
+                    <Link to={isAuthenticated ? "/ai-features" : "/signup"}>
+                      Try AI Features <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
                 </div>
               </div>
             </div>
           </div>
         </section>
         
-        <section className="py-16 text-center">
+        <section className="py-16 text-center relative">
+          <div className="absolute inset-0 bg-gradient-to-t from-blue-100/50 to-purple-100/50 dark:from-blue-900/20 dark:to-purple-900/20 -z-10"></div>
+          
           <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Ready to optimize your pharmacy inventory?</h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
             Join pharmacies around the world who trust our platform to manage their inventory efficiently.
           </p>
-          <Button asChild size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
+          <Button asChild size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-6 text-lg rounded-xl">
             <Link to="/signup">Get Started Today</Link>
           </Button>
         </section>
       </main>
       
-      <footer className="bg-gray-100 dark:bg-gray-800 py-12">
+      <footer className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm py-12">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-6 md:mb-0">

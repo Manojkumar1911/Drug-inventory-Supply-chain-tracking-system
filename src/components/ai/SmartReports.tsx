@@ -2,25 +2,19 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, TrendingUp, BarChart as BarChartIcon, AlertCircle, LayoutDashboard, FileText } from "lucide-react";
+import { Sparkles, TrendingUp, BarChart as BarChartIcon, AlertCircle, LayoutDashboard, FileText, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChartContainer } from '@/components/ui/chart';
 import { toast } from 'sonner';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 interface ReportData {
   title: string;
   description: string;
   insights: string[];
   recommendations: string[];
-  chart?: {
-    labels: string[];
-    datasets: {
-      label: string;
-      data: number[];
-      backgroundColor: string;
-    }[];
-  };
+  chartData?: any[];
+  chartType?: 'bar' | 'pie' | 'line';
 }
 
 // Sample inventory data for demonstration
@@ -52,14 +46,15 @@ const preGeneratedReports: Record<string, ReportData> = {
       "Consider redistributing excess Amoxicillin stock to other locations with higher demand",
       "Implement a seasonal adjustment for antihistamine stock levels in the coming allergy season"
     ],
-    chart: {
-      labels: ["Antibiotics", "Blood Pressure", "Diabetes", "Cholesterol", "Allergy", "Gastrointestinal"],
-      datasets: [{
-        label: "Current Stock Value ($)",
-        data: [12500, 6800, 8900, 7200, 4500, 3800],
-        backgroundColor: "rgba(59, 130, 246, 0.5)"
-      }]
-    }
+    chartType: 'bar',
+    chartData: [
+      {name: "Antibiotics", value: 12500},
+      {name: "Blood Pressure", value: 6800},
+      {name: "Diabetes", value: 8900},
+      {name: "Cholesterol", value: 7200},
+      {name: "Allergy", value: 4500},
+      {name: "Gastrointestinal", value: 3800}
+    ]
   },
   trends: {
     title: "Quarterly Inventory Trends Analysis",
@@ -74,14 +69,15 @@ const preGeneratedReports: Record<string, ReportData> = {
       "Review antibiotic ordering patterns to prevent potential overstocking in the coming months",
       "Implement automatic reordering for the top 5 most frequently dispensed medications"
     ],
-    chart: {
-      labels: ["January", "February", "March", "April", "May", "June"],
-      datasets: [{
-        label: "Inventory Turnover Rate",
-        data: [2.1, 2.3, 2.6, 2.8, 3.0, 3.1],
-        backgroundColor: "rgba(99, 102, 241, 0.5)"
-      }]
-    }
+    chartType: 'line',
+    chartData: [
+      {name: "January", value: 2.1},
+      {name: "February", value: 2.3},
+      {name: "March", value: 2.6},
+      {name: "April", value: 2.8},
+      {name: "May", value: 3.0},
+      {name: "June", value: 3.1}
+    ]
   },
   categories: {
     title: "Category Performance Report",
@@ -96,14 +92,15 @@ const preGeneratedReports: Record<string, ReportData> = {
       "Implement category-specific reorder levels for respiratory medications to prevent overstock",
       "Develop a specialized procurement strategy for psychiatric medications to reduce stockouts"
     ],
-    chart: {
-      labels: ["Antibiotics", "Blood Pressure", "Diabetes", "Cholesterol", "Psychiatric", "Respiratory"],
-      datasets: [{
-        label: "Profit Margin (%)",
-        data: [35, 38, 42, 31, 40, 29],
-        backgroundColor: "rgba(79, 70, 229, 0.5)"
-      }]
-    }
+    chartType: 'bar',
+    chartData: [
+      {name: "Antibiotics", value: 35},
+      {name: "Blood Pressure", value: 38},
+      {name: "Diabetes", value: 42},
+      {name: "Cholesterol", value: 31},
+      {name: "Psychiatric", value: 40},
+      {name: "Respiratory", value: 29}
+    ]
   },
   alerts: {
     title: "Inventory Risk Analysis",
@@ -118,14 +115,15 @@ const preGeneratedReports: Record<string, ReportData> = {
       "Adjust the reorder points for frequently stocked-out items by adding a 20% buffer",
       "Review and update carrying cost calculations to optimize inventory investment"
     ],
-    chart: {
-      labels: ["Expiry Risk", "Stockout Risk", "Oversupply Risk", "Quality Risk", "Compliance Risk", "Financial Risk"],
-      datasets: [{
-        label: "Risk Score (1-10)",
-        data: [8, 6, 4, 3, 2, 5],
-        backgroundColor: "rgba(239, 68, 68, 0.5)"
-      }]
-    }
+    chartType: 'pie',
+    chartData: [
+      {name: "Expiry Risk", value: 8},
+      {name: "Stockout Risk", value: 6},
+      {name: "Oversupply Risk", value: 4},
+      {name: "Quality Risk", value: 3},
+      {name: "Compliance Risk", value: 2},
+      {name: "Financial Risk", value: 5}
+    ]
   }
 };
 
@@ -144,14 +142,15 @@ const customQueryResponses: Record<string, ReportData> = {
       "Establish a weekly expired product review process to minimize waste",
       "Coordinate with suppliers for a possible return program for products within 60 days of expiry"
     ],
-    chart: {
-      labels: ["Within 30 days", "31-60 days", "61-90 days", "91-180 days", "181-365 days", ">365 days"],
-      datasets: [{
-        label: "Product Count",
-        data: [2, 3, 2, 8, 15, 35],
-        backgroundColor: "rgba(245, 158, 11, 0.5)"
-      }]
-    }
+    chartType: 'bar',
+    chartData: [
+      {name: "Within 30 days", value: 2},
+      {name: "31-60 days", value: 3},
+      {name: "61-90 days", value: 2},
+      {name: "91-180 days", value: 8},
+      {name: "181-365 days", value: 15},
+      {name: ">365 days", value: 35}
+    ]
   },
   "low stock": {
     title: "Low Stock Products Analysis",
@@ -166,14 +165,15 @@ const customQueryResponses: Record<string, ReportData> = {
       "Review and update reorder levels based on recent consumption patterns",
       "Implement automated alerts at 20% above reorder levels for high-priority medications"
     ],
-    chart: {
-      labels: ["Antibiotics", "Blood Pressure", "Diabetes", "Cholesterol", "Psychiatric", "Respiratory"],
-      datasets: [{
-        label: "Products Below Reorder Level",
-        data: [3, 2, 1, 2, 3, 1],
-        backgroundColor: "rgba(220, 38, 38, 0.5)"
-      }]
-    }
+    chartType: 'bar',
+    chartData: [
+      {name: "Antibiotics", value: 3},
+      {name: "Blood Pressure", value: 2},
+      {name: "Diabetes", value: 1},
+      {name: "Cholesterol", value: 2},
+      {name: "Psychiatric", value: 3},
+      {name: "Respiratory", value: 1}
+    ]
   },
   "cost analysis": {
     title: "Inventory Cost Analysis",
@@ -188,14 +188,15 @@ const customQueryResponses: Record<string, ReportData> = {
       "Optimize refrigerated storage allocation to reduce energy costs",
       "Develop a hybrid JIT system for fast-moving items to reduce carrying costs"
     ],
-    chart: {
-      labels: ["Storage", "Insurance", "Taxes", "Obsolescence", "Handling", "Other"],
-      datasets: [{
-        label: "Cost Components (%)",
-        data: [35, 12, 8, 25, 15, 5],
-        backgroundColor: "rgba(16, 185, 129, 0.5)"
-      }]
-    }
+    chartType: 'pie',
+    chartData: [
+      {name: "Storage", value: 35},
+      {name: "Insurance", value: 12},
+      {name: "Taxes", value: 8},
+      {name: "Obsolescence", value: 25},
+      {name: "Handling", value: 15},
+      {name: "Other", value: 5}
+    ]
   },
   "supplier performance": {
     title: "Supplier Performance Analysis",
@@ -210,14 +211,15 @@ const customQueryResponses: Record<string, ReportData> = {
       "Implement a formal supplier performance review process on a quarterly basis",
       "Negotiate price lock guarantees for high-volume items to control cost increases"
     ],
-    chart: {
-      labels: ["Supplier A", "Supplier B", "Supplier C", "Supplier D", "Supplier E", "Others"],
-      datasets: [{
-        label: "Reliability Score (1-100)",
-        data: [92, 87, 78, 85, 80, 75],
-        backgroundColor: "rgba(124, 58, 237, 0.5)"
-      }]
-    }
+    chartType: 'bar',
+    chartData: [
+      {name: "Supplier A", value: 92},
+      {name: "Supplier B", value: 87},
+      {name: "Supplier C", value: 78},
+      {name: "Supplier D", value: 85},
+      {name: "Supplier E", value: 80},
+      {name: "Others", value: 75}
+    ]
   }
 };
 
@@ -255,16 +257,19 @@ const processCustomQuery = (query: string): ReportData | null => {
       "Consider implementing ABC analysis to focus attention on high-value items",
       "Develop standard operating procedures for inventory exceptions and special cases"
     ],
-    chart: {
-      labels: ["Category A", "Category B", "Category C", "Category D", "Category E", "Category F"],
-      datasets: [{
-        label: "Inventory Distribution",
-        data: [35, 25, 15, 10, 10, 5],
-        backgroundColor: "rgba(59, 130, 246, 0.5)"
-      }]
-    }
+    chartType: 'bar',
+    chartData: [
+      {name: "Category A", value: 35},
+      {name: "Category B", value: 25},
+      {name: "Category C", value: 15},
+      {name: "Category D", value: 10},
+      {name: "Category E", value: 10},
+      {name: "Category F", value: 5}
+    ]
   };
 };
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 const SmartReports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("inventory");
@@ -307,6 +312,94 @@ const SmartReports: React.FC = () => {
     if (customQuery.trim()) {
       generateReport("custom");
     }
+  };
+
+  const exportReport = () => {
+    if (!reportData) return;
+    
+    // Create a text version of the report
+    const reportText = `
+# ${reportData.title}
+${reportData.description}
+
+## Key Insights
+${reportData.insights.map((insight, i) => `${i+1}. ${insight}`).join('\n')}
+
+## Recommendations
+${reportData.recommendations.map((rec, i) => `${i+1}. ${rec}`).join('\n')}
+
+Report generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+    `;
+    
+    // Create a Blob with the report content
+    const blob = new Blob([reportText], { type: 'text/plain' });
+    
+    // Create a download link
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${reportData.title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
+    
+    // Trigger the download
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast.success("Report exported successfully");
+  };
+
+  const renderChart = () => {
+    if (!reportData?.chartData) return null;
+    
+    if (reportData.chartType === 'pie') {
+      return (
+        <ResponsiveContainer width="100%" height={300}>
+          <PieChart>
+            <Pie
+              data={reportData.chartData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+              outerRadius={80}
+              fill="#8884d8"
+              dataKey="value"
+            >
+              {reportData.chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value) => [value, 'Value']} />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      );
+    }
+    
+    // Default to bar chart
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart
+          data={reportData.chartData}
+          margin={{
+            top: 20,
+            right: 30,
+            left: 20,
+            bottom: 60,
+          }}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Bar dataKey="value" fill="#8884d8" />
+        </BarChart>
+      </ResponsiveContainer>
+    );
   };
 
   return (
@@ -366,7 +459,12 @@ const SmartReports: React.FC = () => {
                     disabled={isLoading || !customQuery.trim()} 
                     className="bg-blue-600 hover:bg-blue-700"
                   >
-                    {isLoading ? 'Generating...' : 'Generate Custom Report'}
+                    {isLoading ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : 'Generate Custom Report'}
                   </Button>
                 </form>
               </div>
@@ -377,55 +475,47 @@ const SmartReports: React.FC = () => {
                   disabled={isLoading}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
-                  {isLoading ? 'Generating...' : `Generate ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Report`}
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : `Generate ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Report`}
                 </Button>
               </div>
             )}
             
             {reportData ? (
               <div className="space-y-6 mt-4">
-                <div className="border-b pb-4">
-                  <h3 className="text-2xl font-bold text-blue-600 mb-2">{reportData.title}</h3>
-                  <p className="text-gray-600 dark:text-gray-300">{reportData.description}</p>
+                <div className="flex justify-between items-start border-b pb-4">
+                  <div>
+                    <h3 className="text-2xl font-bold text-blue-600 mb-2">{reportData.title}</h3>
+                    <p className="text-gray-600 dark:text-gray-300">{reportData.description}</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={exportReport}
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
                 </div>
                 
-                {reportData.chart && (
-                  <div className="border p-4 rounded-lg bg-white dark:bg-gray-800 h-[300px]">
-                    <div className="w-full h-full">
-                      <div className="flex justify-center items-center h-full">
-                        <div className="w-full max-w-3xl">
-                          <div className="text-center mb-4 text-lg font-medium">
-                            Data Visualization
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {reportData.chart.labels.map((label, index) => (
-                              <div 
-                                key={index} 
-                                className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-lg"
-                                style={{
-                                  height: `${(reportData.chart?.datasets[0].data[index] || 0) / Math.max(...reportData.chart?.datasets[0].data) * 100}%`,
-                                  minHeight: '40px'
-                                }}
-                              >
-                                <div className="flex flex-col justify-between h-full">
-                                  <div className="font-medium">{label}</div>
-                                  <div className="text-lg font-bold">
-                                    {reportData.chart?.datasets[0].data[index]}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                {reportData.chartData && (
+                  <div className="border p-4 rounded-lg bg-white dark:bg-gray-800 overflow-hidden">
+                    {renderChart()}
                   </div>
                 )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Key Insights</CardTitle>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-blue-500" />
+                        Key Insights
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <ul className="space-y-2">
@@ -443,7 +533,10 @@ const SmartReports: React.FC = () => {
                   
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Recommendations</CardTitle>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                        Recommendations
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <ul className="space-y-2">
@@ -485,8 +578,7 @@ const SmartReports: React.FC = () => {
       
       <div className="text-sm text-gray-500 dark:text-gray-400 italic">
         <p>
-          Note: The Smart Reports feature uses AI to generate insights based on your inventory data.
-          For the demo, we're using sample data. In a production environment, this would use your actual inventory data.
+          <strong>How to Use Smart Reports:</strong> Select a report type from the tabs above or create a custom query. Reports provide insights into your inventory data, identify trends, and offer recommendations for optimizing your pharmacy operations.
         </p>
       </div>
     </div>
