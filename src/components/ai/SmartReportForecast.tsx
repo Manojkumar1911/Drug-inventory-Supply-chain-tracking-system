@@ -1,612 +1,857 @@
-
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import React, { useState, useEffect, useMemo } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, Legend, Area, AreaChart, ComposedChart, Bar, Scatter
-} from "recharts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Download, RefreshCw, ChevronDown, Zap, ArrowDownCircle, AlertTriangle, ShieldCheck, Calendar } from "lucide-react";
-import { arimaForecast, autoArima, generateForecastReport, ArimaParams } from "@/utils/arimaModel";
-import PageLoader from '@/components/ui/page-loader';
-import { useTheme } from '@/context/ThemeContext';
+import { ChevronDown, ChevronUp, BarChart as BarChartIcon, LineChart as LineChartIcon, AlertCircle } from "lucide-react";
+import LoadingSpinner from "@/components/ui/loading-spinner";
+import { motion } from "framer-motion";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import * as echarts from 'echarts/core';
+import { BarChart as EChartsBarChart } from 'echarts/charts';
+import { LineChart as EChartsLineChart } from 'echarts/charts';
+import {
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  DatasetComponent,
+  TransformComponent,
+  LegendComponent
+} from 'echarts/components';
+import { LabelLayout, UniversalTransition } from 'echarts/features';
+import { CanvasRenderer } from 'echarts/renderers';
+
+// Register the required components for ECharts
+echarts.use([
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  DatasetComponent,
+  TransformComponent,
+  LegendComponent,
+  EChartsBarChart,
+  EChartsLineChart,
+  LabelLayout,
+  UniversalTransition,
+  CanvasRenderer
+]);
+
+// Type definitions for our data models
+interface Product {
+  id: number;
+  name: string;
+  category: string;
+  quantity: number;
+  reorder_level: number;
+  location: string;
+  manufacturer: string;
+  sku: string;
+  date?: string;
+  expiry_date?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ForecastResult {
+  dates: string[];
+  forecast: number[];
+  lower_bound: number[];
+  upper_bound: number[];
+  rmse: number;
+  mape: number;
+}
+
+interface ForecastConfig {
+  productId: number | null;
+  productName: string;
+  periods: number;
+  seasonalPeriods: number;
+  interval: 'days' | 'weeks' | 'months';
+  startDate: string;
+  endDate: string;
+  confidenceInterval: number;
+  includeHistorical: boolean;
+}
+
+// Only capture needed types, we're not able to import ARIMA fully on the frontend
+interface ArimaParams {
+  p: number;
+  d: number;
+  q: number;
+  P?: number;
+  D?: number;
+  Q?: number;
+  s?: number;
+}
+
+// Color palettes for charts
+const colorPalette = [
+  '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de',
+  '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'
+];
+
+// Gradient generator for cards
+const generateGradient = (color1: string, color2: string) => `linear-gradient(to right, ${color1}, ${color2})`;
+
+// Utility function to format numbers
+const formatNumber = (num: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'decimal',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(num);
+};
 
 const SmartReportForecast: React.FC = () => {
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [initialLoading, setInitialLoading] = useState<boolean>(true);
-  const [product, setProduct] = useState<string>("antibiotic");
-  const [timeframe, setTimeframe] = useState<string>("days");
-  const [timeframeValue, setTimeframeValue] = useState<number>(7);
-  const [reportData, setReportData] = useState<any>(null);
-  const [arimaParams, setArimaParams] = useState<ArimaParams>({ p: 1, d: 1, q: 1 });
-  const [confidenceLevel, setConfidenceLevel] = useState<number>(0.95);
-  const [isAutoArima, setIsAutoArima] = useState<boolean>(true);
-  const [chartType, setChartType] = useState<string>("area");
-  const { theme } = useTheme();
-
-  // Sample historical data for different products
-  const sampleData: Record<string, number[]> = {
-    antibiotic: [245, 258, 274, 265, 262, 289, 291, 304, 315, 302, 312, 318, 325, 336, 340, 348, 360, 352, 348, 370, 360, 355, 372, 380, 390, 385, 400, 410, 405, 415],
-    painkiller: [180, 185, 178, 190, 196, 188, 205, 210, 200, 212, 220, 215, 225, 232, 228, 240, 235, 250, 243, 260, 255, 265, 270, 265, 280, 275, 290, 285, 300, 295],
-    vitamin: [120, 125, 128, 130, 135, 128, 140, 145, 142, 148, 152, 150, 155, 160, 158, 162, 168, 172, 175, 180, 185, 182, 188, 190, 195, 200, 205, 202, 210, 215],
-    cardiovascular: [320, 325, 335, 330, 340, 350, 345, 355, 360, 355, 365, 375, 380, 370, 385, 390, 385, 395, 400, 410, 405, 415, 420, 425, 430, 440, 435, 450, 445, 460],
-    respiratory: [210, 215, 220, 218, 225, 230, 228, 235, 240, 238, 245, 250, 248, 255, 260, 258, 265, 270, 275, 280, 285, 290, 288, 295, 300, 305, 310, 315, 318, 325]
-  };
-
-  // Initialize and load data
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [isGeneratingForecast, setIsGeneratingForecast] = useState(false);
+  const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null);
+  const [advancedMode, setAdvancedMode] = useState(false);
+  const [chartType, setChartType] = useState<'bar' | 'line'>('line');
+  const [showSettings, setShowSettings] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Forecast configuration with defaults
+  const [config, setConfig] = useState<ForecastConfig>({
+    productId: null,
+    productName: '',
+    periods: 14,
+    seasonalPeriods: 7, // weekly seasonality
+    interval: 'days',
+    startDate: '', // Will be set after products are loaded
+    endDate: '',   // Will be set after products are loaded
+    confidenceInterval: 95,
+    includeHistorical: true,
+  });
+  
+  const [arimaParams, setArimaParams] = useState<ArimaParams>({
+    p: 1,
+    d: 1,
+    q: 1,
+    P: 0,
+    D: 0,
+    Q: 0,
+    s: 7, // Default seasonal period
+  });
+  
+  // Fetch products on component mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      generateReport();
-      setInitialLoading(false);
-    }, 1200); 
+    fetchProducts();
     
-    return () => clearTimeout(timer);
+    // Set default date range (last 60 days to today)
+    const today = new Date();
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(today.getDate() - 60);
+    
+    setConfig(prev => ({
+      ...prev,
+      startDate: sixtyDaysAgo.toISOString().split('T')[0],
+      endDate: today.toISOString().split('T')[0],
+    }));
   }, []);
 
-  const generateReport = async () => {
-    setIsLoading(true);
+  const fetchProducts = async () => {
+    setIsLoadingProducts(true);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('name', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (data) {
+        setProducts(data);
+        // If there are products, select the first one by default
+        if (data.length > 0) {
+          setSelectedProductId(data[0].id);
+          setConfig(prev => ({
+            ...prev,
+            productId: data[0].id,
+            productName: data[0].name,
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      setError("Failed to load products from the database.");
+      toast.error("Failed to load products");
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+
+  // Generate ARIMA forecast using Supabase Edge Function
+  const generateForecast = async () => {
+    if (!selectedProductId) {
+      toast.error("Please select a product first");
+      return;
+    }
+    
+    setIsGeneratingForecast(true);
+    setError(null);
     
     try {
-      // Get historical data for the selected product
-      const historicalData = sampleData[product] || sampleData.antibiotic;
+      const { data: { session } } = await supabase.auth.getSession();
       
-      let params = arimaParams;
-      if (isAutoArima) {
-        // Use auto ARIMA to find optimal parameters
-        params = autoArima(historicalData);
-        setArimaParams(params);
+      if (!session) {
+        throw new Error("No active session found. Please login again.");
       }
       
-      // Generate forecast report
-      const forecastSteps = timeframeValue; 
-      const report = generateForecastReport(product, historicalData, forecastSteps);
-      
-      setReportData(report);
-      toast.success(`Forecast generated for ${product}`);
-    } catch (error) {
-      console.error("Error generating forecast:", error);
-      toast.error("Failed to generate forecast");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Download report as CSV
-  const downloadReport = () => {
-    if (!reportData) return;
-    
-    try {
-      // Prepare CSV data
-      let csvContent = "Date,Historical,Forecast,Lower Bound,Upper Bound\n";
-      
-      reportData.chart.labels.forEach((label: string, index: number) => {
-        const historical = reportData.chart.historical[index] ?? "";
-        const forecast = reportData.chart.predicted[index] ?? "";
-        const lower = reportData.chart.lowerBound[index] ?? "";
-        const upper = reportData.chart.upperBound[index] ?? "";
-        
-        csvContent += `${label},${historical},${forecast},${lower},${upper}\n`;
+      const response = await fetch("https://labzxhoshhzfixlzccrw.supabase.co/functions/v1/generate-arima-forecast", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          productId: selectedProductId,
+          periods: config.periods,
+          interval: config.interval,
+          startDate: config.startDate,
+          endDate: config.endDate,
+          confidenceInterval: config.confidenceInterval,
+          includeHistorical: config.includeHistorical,
+          arimaParams: advancedMode ? arimaParams : undefined,
+        })
       });
       
-      // Create and download file
-      const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `${product}_forecast_${new Date().toISOString().slice(0,10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const result = await response.json();
       
-      toast.success("Report downloaded successfully");
-    } catch (error) {
-      toast.error("Failed to download report");
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to generate forecast");
+      }
+      
+      setForecastResult(result);
+      toast.success("Forecast generated successfully");
+    } catch (error: any) {
+      console.error("Error generating forecast:", error);
+      setError(error.message || "Failed to generate forecast");
+      toast.error(error.message || "Failed to generate forecast");
+    } finally {
+      setIsGeneratingForecast(false);
     }
   };
 
-  if (initialLoading) {
-    return <PageLoader message="Initializing ARIMA model..." />;
-  }
+  const handleProductChange = (productId: number) => {
+    const selectedProduct = products.find(p => p.id === productId);
+    if (selectedProduct) {
+      setSelectedProductId(productId);
+      setConfig(prev => ({
+        ...prev,
+        productId: productId,
+        productName: selectedProduct.name,
+      }));
+    }
+  };
 
+  // Setup chart data for recharts
+  const chartData = useMemo(() => {
+    if (!forecastResult) return [];
+    
+    return forecastResult.dates.map((date, index) => {
+      return {
+        date,
+        forecast: Math.round(forecastResult.forecast[index]),
+        lowerBound: Math.round(forecastResult.lower_bound[index]),
+        upperBound: Math.round(forecastResult.upper_bound[index]),
+      };
+    });
+  }, [forecastResult]);
+
+  // Initialize and update ECharts when data changes
+  useEffect(() => {
+    if (!forecastResult || chartData.length === 0) return;
+
+    const chartDom = document.getElementById('echart-forecast');
+    if (!chartDom) return;
+
+    const myChart = echarts.init(chartDom, 'dark');
+    
+    const option = {
+      title: {
+        text: `${config.productName} - Demand Forecast`,
+        left: 'center',
+        textStyle: {
+          fontWeight: 'bold',
+          fontSize: 16
+        }
+      },
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params: any) {
+          const date = params[0].name;
+          let tooltip = `<div style="font-weight: bold; margin-bottom: 5px;">${date}</div>`;
+          
+          params.forEach((param: any) => {
+            let color = param.color;
+            let value = param.value;
+            let name = param.seriesName;
+            tooltip += `<div style="display: flex; align-items: center; margin: 3px 0;">
+              <span style="display:inline-block; width:10px; height:10px; background-color:${color}; border-radius:50%; margin-right:5px;"></span>
+              <span>${name}: ${value}</span>
+            </div>`;
+          });
+          
+          return tooltip;
+        }
+      },
+      legend: {
+        data: ['Forecast', 'Lower Bound', 'Upper Bound'],
+        bottom: 0
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '10%',
+        top: '15%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: forecastResult.dates,
+        axisLabel: {
+          rotate: 45,
+          interval: Math.floor(forecastResult.dates.length / 10)
+        }
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Quantity',
+        nameLocation: 'middle',
+        nameGap: 50
+      },
+      series: [
+        {
+          name: 'Forecast',
+          type: chartType,
+          data: forecastResult.forecast.map(Math.round),
+          smooth: true,
+          lineStyle: {
+            width: 3,
+            shadowColor: 'rgba(0, 0, 0, 0.3)',
+            shadowBlur: 10,
+            shadowOffsetY: 5
+          },
+          itemStyle: {
+            color: '#5470c6'
+          },
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowOffsetX: 0,
+              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          }
+        },
+        {
+          name: 'Lower Bound',
+          type: 'line',
+          data: forecastResult.lower_bound.map(Math.round),
+          lineStyle: {
+            width: 2,
+            type: 'dashed',
+            opacity: 0.7
+          },
+          itemStyle: {
+            color: '#91cc75'
+          }
+        },
+        {
+          name: 'Upper Bound',
+          type: 'line',
+          data: forecastResult.upper_bound.map(Math.round),
+          lineStyle: {
+            width: 2,
+            type: 'dashed',
+            opacity: 0.7
+          },
+          itemStyle: {
+            color: '#fac858'
+          },
+          markArea: {
+            itemStyle: {
+              color: 'rgba(255, 173, 177, 0.1)'
+            },
+            data: forecastResult.dates.map((_, i) => [
+              { 
+                yAxis: forecastResult.lower_bound[i],
+                xAxis: forecastResult.dates[i]
+              },
+              { 
+                yAxis: forecastResult.upper_bound[i],
+                xAxis: forecastResult.dates[i] 
+              }
+            ])
+          }
+        }
+      ]
+    };
+    
+    myChart.setOption(option);
+    
+    // Handle resize
+    const handleResize = () => {
+      myChart.resize();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      myChart.dispose();
+    };
+  }, [forecastResult, chartType, chartData, config.productName]);
+
+  const toggleAdvancedMode = () => {
+    setAdvancedMode(!advancedMode);
+  };
+
+  const toggleChartType = () => {
+    setChartType(chartType === 'line' ? 'bar' : 'line');
+  };
+
+  const toggleSettings = () => {
+    setShowSettings(!showSettings);
+  };
+
+  // Statistical accuracy metrics
+  const accuracyMetrics = useMemo(() => {
+    if (!forecastResult) return null;
+    
+    return {
+      rmse: forecastResult.rmse.toFixed(2),
+      mape: (forecastResult.mape * 100).toFixed(2) + '%'
+    };
+  }, [forecastResult]);
+  
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            ARIMA Demand Forecast
-          </h2>
-          <p className="text-muted-foreground">
-            Advanced time series forecasting for inventory optimization
-          </p>
-        </div>
-        
-        <div className="flex flex-wrap gap-2">
-          <Select value={product} onValueChange={setProduct}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select product" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="antibiotic">Antibiotics</SelectItem>
-              <SelectItem value="painkiller">Pain Killers</SelectItem>
-              <SelectItem value="vitamin">Vitamins</SelectItem>
-              <SelectItem value="cardiovascular">Cardiovascular</SelectItem>
-              <SelectItem value="respiratory">Respiratory</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <div className="flex gap-2">
-            <Select value={timeframeValue.toString()} onValueChange={(val) => setTimeframeValue(parseInt(val))}>
-              <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="Period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">7</SelectItem>
-                <SelectItem value="14">14</SelectItem>
-                <SelectItem value="30">30</SelectItem>
-                <SelectItem value="60">60</SelectItem>
-                <SelectItem value="90">90</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={timeframe} onValueChange={setTimeframe}>
-              <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="Unit" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="days">Days</SelectItem>
-                <SelectItem value="weeks">Weeks</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <Button 
-            onClick={generateReport} 
-            disabled={isLoading}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
-          >
-            {isLoading ? (
-              <span className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                Processing...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <Zap className="h-4 w-4" />
-                Generate
-              </span>
-            )}
-          </Button>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 border border-gray-200 dark:border-gray-800 shadow-md hover:shadow-lg transition-all">
-          <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-lg">Demand Forecast for {product.charAt(0).toUpperCase() + product.slice(1)}</CardTitle>
-                <CardDescription>Predicted demand for the next {timeframeValue} {timeframe}</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Select value={chartType} onValueChange={setChartType}>
-                  <SelectTrigger className="w-[130px] h-8">
-                    <SelectValue placeholder="Chart Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="area">Area Chart</SelectItem>
-                    <SelectItem value="line">Line Chart</SelectItem>
-                    <SelectItem value="composed">Composed Chart</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="h-[400px]">
-            {reportData ? (
-              <ResponsiveContainer width="100%" height="100%">
-                {chartType === 'area' ? (
-                  <AreaChart
-                    data={reportData.chart.labels.map((label: string, index: number) => ({
-                      date: label,
-                      historical: reportData.chart.historical[index],
-                      forecast: reportData.chart.predicted[index],
-                      lowerBound: reportData.chart.lowerBound[index],
-                      upperBound: reportData.chart.upperBound[index]
-                    }))}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <defs>
-                      <linearGradient id="colorHistorical" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorForecast" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#82ca9d" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#555' : '#ddd'} />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke={theme === 'dark' ? '#999' : '#666'}
-                      tick={{fill: theme === 'dark' ? '#bbb' : '#333'}}
-                    />
-                    <YAxis 
-                      stroke={theme === 'dark' ? '#999' : '#666'}
-                      tick={{fill: theme === 'dark' ? '#bbb' : '#333'}}
-                    />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: theme === 'dark' ? '#333' : '#fff',
-                        borderColor: theme === 'dark' ? '#555' : '#ddd',
-                        color: theme === 'dark' ? '#eee' : '#333'
-                      }}
-                    />
-                    <Legend />
-                    <Area 
-                      type="monotone" 
-                      dataKey="historical" 
-                      name="Historical Data"
-                      stroke="#8884d8" 
-                      strokeWidth={2}
-                      fillOpacity={1} 
-                      fill="url(#colorHistorical)" 
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="forecast" 
-                      name="Forecast"
-                      stroke="#82ca9d" 
-                      strokeWidth={2}
-                      fillOpacity={1} 
-                      fill="url(#colorForecast)" 
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="upperBound"
-                      name="Upper Bound"
-                      stroke="transparent"
-                      fill="#82ca9d"
-                      fillOpacity={0.1}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="lowerBound"
-                      name="Lower Bound"
-                      stroke="transparent"
-                      fill="#82ca9d"
-                      fillOpacity={0.1}
-                    />
-                  </AreaChart>
-                ) : chartType === 'line' ? (
-                  <LineChart
-                    data={reportData.chart.labels.map((label: string, index: number) => ({
-                      date: label,
-                      historical: reportData.chart.historical[index],
-                      forecast: reportData.chart.predicted[index],
-                      lowerBound: reportData.chart.lowerBound[index],
-                      upperBound: reportData.chart.upperBound[index]
-                    }))}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#555' : '#ddd'} />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke={theme === 'dark' ? '#999' : '#666'}
-                      tick={{fill: theme === 'dark' ? '#bbb' : '#333'}}
-                    />
-                    <YAxis 
-                      stroke={theme === 'dark' ? '#999' : '#666'}
-                      tick={{fill: theme === 'dark' ? '#bbb' : '#333'}}
-                    />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: theme === 'dark' ? '#333' : '#fff',
-                        borderColor: theme === 'dark' ? '#555' : '#ddd',
-                        color: theme === 'dark' ? '#eee' : '#333'
-                      }}
-                    />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="historical" 
-                      name="Historical Data" 
-                      stroke="#8884d8" 
-                      strokeWidth={3}
-                      dot={true} 
-                      activeDot={{ r: 6 }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="forecast" 
-                      name="Forecast" 
-                      stroke="#82ca9d" 
-                      strokeWidth={3}
-                      dot={true} 
-                      activeDot={{ r: 6 }}
-                      strokeDasharray="5 5" 
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="upperBound" 
-                      name="Upper Bound" 
-                      stroke="#ff7300" 
-                      strokeWidth={1}
-                      dot={false} 
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="lowerBound" 
-                      name="Lower Bound" 
-                      stroke="#ff7300" 
-                      strokeWidth={1}
-                      dot={false} 
-                    />
-                  </LineChart>
-                ) : (
-                  <ComposedChart
-                    data={reportData.chart.labels.map((label: string, index: number) => ({
-                      date: label,
-                      historical: reportData.chart.historical[index],
-                      forecast: reportData.chart.predicted[index],
-                      lowerBound: reportData.chart.lowerBound[index],
-                      upperBound: reportData.chart.upperBound[index],
-                      deviation: index >= reportData.chart.historical.filter(Boolean).length 
-                        ? Math.abs((reportData.chart.upperBound[index] - reportData.chart.lowerBound[index]) / 2) : 0
-                    }))}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#555' : '#ddd'} />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke={theme === 'dark' ? '#999' : '#666'}
-                      tick={{fill: theme === 'dark' ? '#bbb' : '#333'}}
-                    />
-                    <YAxis 
-                      stroke={theme === 'dark' ? '#999' : '#666'}
-                      tick={{fill: theme === 'dark' ? '#bbb' : '#333'}}
-                    />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: theme === 'dark' ? '#333' : '#fff',
-                        borderColor: theme === 'dark' ? '#555' : '#ddd',
-                        color: theme === 'dark' ? '#eee' : '#333'
-                      }}
-                    />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="historical"
-                      name="Historical Data"
-                      fill="rgba(136, 132, 216, 0.3)"
-                      stroke="#8884d8"
-                    />
-                    <Bar 
-                      dataKey="forecast" 
-                      name="Forecast" 
-                      fill="rgba(130, 202, 157, 0.7)" 
-                      barSize={20} 
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="upperBound"
-                      name="Upper Bound"
-                      stroke="#ff7300"
-                      dot={false}
-                      activeDot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="lowerBound"
-                      name="Lower Bound"
-                      stroke="#ff7300"
-                      dot={false}
-                      activeDot={false}
-                    />
-                    <Scatter 
-                      dataKey="deviation" 
-                      name="Uncertainty" 
-                      fill="#ff7300" 
-                    />
-                  </ComposedChart>
-                )}
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-gray-500 dark:text-gray-400">Generate a forecast to see data visualization</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        <Card className="border border-gray-200 dark:border-gray-800 shadow-md hover:shadow-lg transition-all bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
-          <CardHeader>
-            <CardTitle className="text-lg">Forecast Insights</CardTitle>
-            <CardDescription>AI-generated recommendations</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {reportData ? (
-              <>
-                <div className="p-4 bg-purple-50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50 rounded-lg">
-                  <p className="text-sm text-purple-900 dark:text-purple-300 font-medium leading-relaxed">
-                    {reportData.forecast.length > 0 
-                      ? `Based on ${reportData.chart.historical.filter(Boolean).length} data points, the ARIMA model predicts an average demand of ${Math.round(reportData.forecast.reduce((a: number, b: number) => a + b, 0) / reportData.forecast.length)} units over the next ${timeframeValue} ${timeframe}.`
-                      : "Generate a forecast to see insights"}
-                  </p>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-1">
-                    <Calendar className="h-4 w-4 text-blue-500" /> Key Insights
-                  </h4>
-                  <ul className="space-y-3">
-                    {reportData.insights.map((insight: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-                        {idx === 0 ? (
-                          <ArrowDownCircle className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                        ) : idx === 1 ? (
-                          <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                        ) : (
-                          <ShieldCheck className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                        )}
-                        <span className="text-sm">{insight}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
-                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h4 className="font-medium mb-2">Model Parameters</h4>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div className="bg-white dark:bg-gray-800 p-2 rounded-md text-center border border-gray-100 dark:border-gray-700">
-                      <div className="font-medium text-gray-600 dark:text-gray-400">p</div>
-                      <div className="font-bold text-blue-600 dark:text-blue-400">{arimaParams.p}</div>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 p-2 rounded-md text-center border border-gray-100 dark:border-gray-700">
-                      <div className="font-medium text-gray-600 dark:text-gray-400">d</div>
-                      <div className="font-bold text-blue-600 dark:text-blue-400">{arimaParams.d}</div>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 p-2 rounded-md text-center border border-gray-100 dark:border-gray-700">
-                      <div className="font-medium text-gray-600 dark:text-gray-400">q</div>
-                      <div className="font-bold text-blue-600 dark:text-blue-400">{arimaParams.q}</div>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                    <p>ARIMA({arimaParams.p},{arimaParams.d},{arimaParams.q}) model {isAutoArima ? 'automatically selected' : 'manually configured'}</p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="h-40 flex items-center justify-center">
-                <p className="text-gray-500">Generate a forecast to see insights</p>
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex flex-col gap-2">
-            <Button 
-              onClick={downloadReport} 
-              variant="outline" 
-              className="w-full" 
-              disabled={!reportData}
-            >
-              <Download className="mr-2 h-4 w-4" /> Download Report
-            </Button>
-            <div className="flex items-center justify-center w-full text-xs text-gray-500 dark:text-gray-400 mt-2">
-              <span>Last updated: {new Date().toLocaleString()}</span>
-            </div>
-          </CardFooter>
-        </Card>
-      </div>
-
-      <Card className="border border-gray-200 dark:border-gray-800 shadow-md hover:shadow-lg transition-all">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="w-full"
+    >
+      <Card className="bg-gradient-to-br from-background/80 to-background border-slate-200 dark:border-slate-800 shadow-lg">
         <CardHeader>
-          <CardTitle className="text-lg">Advanced ARIMA Settings</CardTitle>
-          <CardDescription>Fine-tune your forecasting model</CardDescription>
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            ARIMA Demand Forecasting
+          </CardTitle>
+          <CardDescription>
+            Predict future inventory demands using advanced time series analysis
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <div className="flex items-center mb-4">
-                <Checkbox 
-                  id="autoArima" 
-                  checked={isAutoArima} 
-                  onCheckedChange={() => setIsAutoArima(!isAutoArima)}
-                />
-                <label htmlFor="autoArima" className="ml-2 text-sm">
-                  Auto-detect optimal parameters
-                </label>
-              </div>
-              
-              <div className={`grid grid-cols-3 gap-4 ${isAutoArima ? 'opacity-50 pointer-events-none' : ''}`}>
-                <div>
-                  <Label htmlFor="pValue" className="mb-1 block">p (AR term)</Label>
-                  <Select 
-                    value={arimaParams.p.toString()} 
-                    onValueChange={(val) => setArimaParams({...arimaParams, p: parseInt(val)})}
-                    disabled={isAutoArima}
-                  >
-                    <SelectTrigger id="pValue">
-                      <SelectValue placeholder="p value" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[0, 1, 2, 3, 4, 5].map(p => (
-                        <SelectItem key={p} value={p.toString()}>{p}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="dValue" className="mb-1 block">d (Diff term)</Label>
-                  <Select 
-                    value={arimaParams.d.toString()} 
-                    onValueChange={(val) => setArimaParams({...arimaParams, d: parseInt(val)})}
-                    disabled={isAutoArima}
-                  >
-                    <SelectTrigger id="dValue">
-                      <SelectValue placeholder="d value" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[0, 1, 2].map(d => (
-                        <SelectItem key={d} value={d.toString()}>{d}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="qValue" className="mb-1 block">q (MA term)</Label>
-                  <Select 
-                    value={arimaParams.q.toString()} 
-                    onValueChange={(val) => setArimaParams({...arimaParams, q: parseInt(val)})}
-                    disabled={isAutoArima}
-                  >
-                    <SelectTrigger id="qValue">
-                      <SelectValue placeholder="q value" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[0, 1, 2, 3, 4, 5].map(q => (
-                        <SelectItem key={q} value={q.toString()}>{q}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+        <CardContent className="space-y-6">
+          {/* Product Selection */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-2 col-span-1 md:col-span-2">
+              <Label htmlFor="product-select">Product</Label>
+              <Select
+                value={selectedProductId?.toString()}
+                onValueChange={(value) => handleProductChange(parseInt(value))}
+                disabled={isLoadingProducts || isGeneratingForecast}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a product" />
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoadingProducts ? (
+                    <div className="flex items-center justify-center py-2">
+                      <LoadingSpinner size="sm" />
+                      <span className="ml-2">Loading products...</span>
+                    </div>
+                  ) : products.length === 0 ? (
+                    <div className="py-2 px-4 text-center">
+                      <AlertCircle className="w-5 h-5 mx-auto mb-1 text-amber-500" />
+                      <p className="text-sm text-muted-foreground">No products found</p>
+                    </div>
+                  ) : (
+                    products.map((product) => (
+                      <SelectItem key={product.id} value={product.id.toString()}>
+                        {product.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
-            
-            <div>
-              <Label htmlFor="confidenceLevel" className="mb-1 block">Confidence Level</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <Select 
-                  value={confidenceLevel.toString()} 
-                  onValueChange={(val) => setConfidenceLevel(parseFloat(val))}
-                >
-                  <SelectTrigger id="confidenceLevel">
-                    <SelectValue placeholder="Confidence" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0.8">80%</SelectItem>
-                    <SelectItem value="0.9">90%</SelectItem>
-                    <SelectItem value="0.95">95%</SelectItem>
-                    <SelectItem value="0.99">99%</SelectItem>
-                  </SelectContent>
-                </Select>
-                
+
+            <div className="space-y-2">
+              <Label htmlFor="forecast-periods">Forecast Periods</Label>
+              <Select
+                value={config.periods.toString()}
+                onValueChange={(value) => setConfig({ ...config, periods: parseInt(value) })}
+                disabled={isGeneratingForecast}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select periods" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">7 periods</SelectItem>
+                  <SelectItem value="14">14 periods</SelectItem>
+                  <SelectItem value="30">30 periods</SelectItem>
+                  <SelectItem value="60">60 periods</SelectItem>
+                  <SelectItem value="90">90 periods</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="interval-select">Interval</Label>
+              <Select
+                value={config.interval}
+                onValueChange={(value: 'days' | 'weeks' | 'months') => setConfig({ ...config, interval: value })}
+                disabled={isGeneratingForecast}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select interval" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="days">Days</SelectItem>
+                  <SelectItem value="weeks">Weeks</SelectItem>
+                  <SelectItem value="months">Months</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Date Range and Advanced Settings */}
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex-grow space-y-2 min-w-[200px]">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="date-range">Historical Data Range</Label>
                 <Button 
-                  variant="outline"
-                  disabled={isAutoArima}
-                  onClick={generateReport}
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 px-2 text-xs"
+                  onClick={toggleSettings}
                 >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Apply Settings
+                  {showSettings ? 'Hide Settings' : 'Show Settings'}
+                  {showSettings ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
                 </Button>
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="start-date" className="sr-only">Start Date</Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={config.startDate}
+                    onChange={(e) => setConfig({ ...config, startDate: e.target.value })}
+                    disabled={isGeneratingForecast}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="end-date" className="sr-only">End Date</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={config.endDate}
+                    onChange={(e) => setConfig({ ...config, endDate: e.target.value })}
+                    disabled={isGeneratingForecast}
+                  />
+                </div>
+              </div>
             </div>
+
+            <Button
+              onClick={generateForecast}
+              disabled={isLoadingProducts || isGeneratingForecast || !selectedProductId}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 min-w-[120px]"
+            >
+              {isGeneratingForecast ? (
+                <><LoadingSpinner size="xs" className="mr-2" /> Generating...</>
+              ) : (
+                'Generate Forecast'
+              )}
+            </Button>
           </div>
+
+          {/* Advanced Settings Panel */}
+          {showSettings && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="border rounded-lg p-4 bg-card/50 backdrop-blur-sm"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="advanced-mode" 
+                      checked={advancedMode} 
+                      onCheckedChange={() => toggleAdvancedMode()}
+                    />
+                    <Label htmlFor="advanced-mode">Enable Advanced ARIMA Parameters</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="include-historical" 
+                      checked={config.includeHistorical} 
+                      onCheckedChange={() => setConfig({...config, includeHistorical: !config.includeHistorical})}
+                    />
+                    <Label htmlFor="include-historical">Include Historical Data in Chart</Label>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="confidence-interval">Confidence Interval (%)</Label>
+                    <Select
+                      value={config.confidenceInterval.toString()}
+                      onValueChange={(value) => setConfig({ ...config, confidenceInterval: parseInt(value) })}
+                      disabled={isGeneratingForecast}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select confidence" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="80">80%</SelectItem>
+                        <SelectItem value="90">90%</SelectItem>
+                        <SelectItem value="95">95%</SelectItem>
+                        <SelectItem value="99">99%</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="chart-type">Chart Type</Label>
+                    <div className="flex space-x-2 mt-1">
+                      <Button 
+                        variant={chartType === 'line' ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setChartType('line')}
+                        className="flex-1"
+                      >
+                        <LineChartIcon className="mr-1 h-4 w-4" />
+                        Line
+                      </Button>
+                      <Button 
+                        variant={chartType === 'bar' ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setChartType('bar')}
+                        className="flex-1"
+                      >
+                        <BarChartIcon className="mr-1 h-4 w-4" />
+                        Bar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ARIMA Parameters (only visible in advanced mode) */}
+              {advancedMode && (
+                <div className="mt-4 pt-4 border-t">
+                  <h4 className="font-medium mb-3">ARIMA Model Parameters</h4>
+                  
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                    <div>
+                      <Label htmlFor="p-param">p (AR)</Label>
+                      <Input 
+                        id="p-param" 
+                        type="number"
+                        min="0" 
+                        max="10" 
+                        value={arimaParams.p}
+                        onChange={(e) => setArimaParams({...arimaParams, p: parseInt(e.target.value)})}
+                        disabled={isGeneratingForecast}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="d-param">d (Diff)</Label>
+                      <Input 
+                        id="d-param" 
+                        type="number" 
+                        min="0" 
+                        max="2" 
+                        value={arimaParams.d}
+                        onChange={(e) => setArimaParams({...arimaParams, d: parseInt(e.target.value)})}
+                        disabled={isGeneratingForecast}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="q-param">q (MA)</Label>
+                      <Input 
+                        id="q-param" 
+                        type="number" 
+                        min="0" 
+                        max="10" 
+                        value={arimaParams.q}
+                        onChange={(e) => setArimaParams({...arimaParams, q: parseInt(e.target.value)})}
+                        disabled={isGeneratingForecast}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="P-param">P (SAR)</Label>
+                      <Input 
+                        id="P-param" 
+                        type="number" 
+                        min="0" 
+                        max="2" 
+                        value={arimaParams.P}
+                        onChange={(e) => setArimaParams({...arimaParams, P: parseInt(e.target.value)})}
+                        disabled={isGeneratingForecast}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="D-param">D (SDiff)</Label>
+                      <Input 
+                        id="D-param" 
+                        type="number" 
+                        min="0" 
+                        max="1" 
+                        value={arimaParams.D}
+                        onChange={(e) => setArimaParams({...arimaParams, D: parseInt(e.target.value)})}
+                        disabled={isGeneratingForecast}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="Q-param">Q (SMA)</Label>
+                      <Input 
+                        id="Q-param" 
+                        type="number" 
+                        min="0" 
+                        max="2" 
+                        value={arimaParams.Q}
+                        onChange={(e) => setArimaParams({...arimaParams, Q: parseInt(e.target.value)})}
+                        disabled={isGeneratingForecast}
+                      />
+                    </div>
+                    
+                    <div className="col-span-3 sm:col-span-2">
+                      <Label htmlFor="s-param">s (Season Length)</Label>
+                      <Select
+                        value={arimaParams.s?.toString()}
+                        onValueChange={(value) => setArimaParams({...arimaParams, s: parseInt(value)})}
+                        disabled={isGeneratingForecast}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Season length" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="7">7 (Weekly)</SelectItem>
+                          <SelectItem value="12">12 (Monthly)</SelectItem>
+                          <SelectItem value="30">30 (Monthly days)</SelectItem>
+                          <SelectItem value="4">4 (Quarterly)</SelectItem>
+                          <SelectItem value="52">52 (Yearly weeks)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {error && (
+            <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4 border border-red-200 dark:border-red-800">
+              <div className="flex">
+                <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-medium text-red-800 dark:text-red-300">Error</h3>
+                  <p className="mt-1 text-sm text-red-700 dark:text-red-400">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Forecast Chart */}
+          {isGeneratingForecast ? (
+            <div className="h-80 flex flex-col items-center justify-center bg-card/50 rounded-lg border">
+              <LoadingSpinner size="lg" className="mb-4" />
+              <p className="text-muted-foreground">Generating forecast, please wait...</p>
+              <p className="text-xs text-muted-foreground mt-1">This may take a few moments.</p>
+            </div>
+          ) : forecastResult ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-4"
+            >
+              <div className="h-[400px] rounded-xl overflow-hidden border bg-card/30 backdrop-blur-sm">
+                <div id="echart-forecast" className="w-full h-full"></div>
+              </div>
+              
+              {accuracyMetrics && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/40">
+                    <CardHeader className="py-2">
+                      <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-300">Model Accuracy</CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-2">
+                      <div className="text-xl font-bold text-blue-900 dark:text-blue-200">{accuracyMetrics.mape}</div>
+                      <p className="text-xs text-blue-700 dark:text-blue-400">Mean Absolute Percentage Error</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800/40">
+                    <CardHeader className="py-2">
+                      <CardTitle className="text-sm font-medium text-green-800 dark:text-green-300">Root Mean Square Error</CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-2">
+                      <div className="text-xl font-bold text-green-900 dark:text-green-200">{accuracyMetrics.rmse}</div>
+                      <p className="text-xs text-green-700 dark:text-green-400">Lower is better</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800/40">
+                    <CardHeader className="py-2">
+                      <CardTitle className="text-sm font-medium text-purple-800 dark:text-purple-300">Forecasted Average</CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-2">
+                      <div className="text-xl font-bold text-purple-900 dark:text-purple-200">
+                        {Math.round(forecastResult.forecast.reduce((a, b) => a + b, 0) / forecastResult.forecast.length)}
+                      </div>
+                      <p className="text-xs text-purple-700 dark:text-purple-400">Units per {config.interval}</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/40">
+                    <CardHeader className="py-2">
+                      <CardTitle className="text-sm font-medium text-amber-800 dark:text-amber-300">Next Period Forecast</CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-2">
+                      <div className="text-xl font-bold text-amber-900 dark:text-amber-200">
+                        {Math.round(forecastResult.forecast[0])}
+                      </div>
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        Range: {Math.round(forecastResult.lower_bound[0])} - {Math.round(forecastResult.upper_bound[0])}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </motion.div>
+          ) : (
+            <div className="border rounded-lg h-80 flex flex-col items-center justify-center text-center p-6 bg-card/50">
+              <div className="text-6xl mb-4 text-muted-foreground/50">📊</div>
+              <h3 className="text-lg font-medium mb-1">Generate Your First Forecast</h3>
+              <p className="text-muted-foreground max-w-md">
+                Select a product and click "Generate Forecast" to predict future inventory demands using the ARIMA model
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
-    </div>
+    </motion.div>
   );
 };
 

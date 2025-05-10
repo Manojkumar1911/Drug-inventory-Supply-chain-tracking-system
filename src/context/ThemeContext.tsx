@@ -1,6 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
 
-type Theme = "light" | "dark" | "system";
+import React, { createContext, useContext, useEffect, useState } from 'react';
+
+type Theme = 'light' | 'dark' | 'system';
+
+type ThemeProviderProps = {
+  children: React.ReactNode;
+};
 
 type ThemeContextType = {
   theme: Theme;
@@ -9,73 +14,73 @@ type ThemeContextType = {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
-    // Check if a theme preference is stored
-    const storedTheme = localStorage.getItem("theme") as Theme | null;
-    
-    // If there's a stored preference, use it
-    if (storedTheme) {
-      return storedTheme;
+    // Try to get the theme from localStorage
+    if (typeof window !== 'undefined') {
+      const storedTheme = localStorage.getItem('theme') as Theme;
+      if (storedTheme) {
+        return storedTheme;
+      }
+
+      // If no theme is found in localStorage, check system preference
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      return systemPrefersDark ? 'dark' : 'light';
     }
     
-    // Otherwise, check system preference
-    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return systemPrefersDark ? "dark" : "light";
+    return 'light'; // Default to light if in server environment
   });
 
   useEffect(() => {
     const root = window.document.documentElement;
     
-    // Remove the old theme class
-    root.classList.remove("light", "dark");
+    // Remove both classes first
+    root.classList.remove('light', 'dark');
     
-    // Apply the new theme
-    if (theme === "system") {
-      const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      root.classList.add(systemPrefersDark ? "dark" : "light");
+    // Apply the theme
+    if (theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
+      root.classList.add(systemTheme);
     } else {
       root.classList.add(theme);
     }
     
-    // Store the preference
-    localStorage.setItem("theme", theme);
+    // Store the theme in localStorage
+    localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // Listen for system preference changes
+  // Listen for system theme changes if theme is set to 'system'
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    
-    const handleChange = () => {
-      if (theme === "system") {
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      
+      const handleChange = () => {
         const root = window.document.documentElement;
-        root.classList.remove("light", "dark");
-        root.classList.add(mediaQuery.matches ? "dark" : "light");
-      }
-    };
-    
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
+        root.classList.remove('light', 'dark');
+        root.classList.add(mediaQuery.matches ? 'dark' : 'light');
+      };
+      
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
   }, [theme]);
 
   const value = {
     theme,
-    setTheme,
+    setTheme: (newTheme: Theme) => {
+      setTheme(newTheme);
+    },
   };
 
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
-};
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error("useTheme must be used within a ThemeProvider");
+    throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;
 };
-
-export default ThemeProvider;
