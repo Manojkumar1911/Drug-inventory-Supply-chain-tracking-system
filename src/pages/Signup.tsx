@@ -9,6 +9,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Checkbox } from "@/components/ui/checkbox";
+import PageLoader from "@/components/ui/page-loader";
 
 const Signup: React.FC = () => {
   const [name, setName] = useState("");
@@ -18,9 +19,16 @@ const Signup: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const { signup, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Simulate loading for better UX
+  useEffect(() => {
+    const timer = setTimeout(() => setPageLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Redirect if user is already authenticated
   useEffect(() => {
@@ -54,10 +62,11 @@ const Signup: React.FC = () => {
     
     try {
       await signup(name, email, password);
+      toast.success("Account created successfully!");
       navigate('/dashboard');
     } catch (error) {
       console.error("Signup failed", error);
-      // Auth context already shows the toast error
+      toast.error("Signup failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -71,29 +80,34 @@ const Signup: React.FC = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
 
+  if (pageLoading) {
+    return <PageLoader message="Loading sign up..." />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 dark:from-purple-950/30 dark:via-indigo-950/30 dark:to-blue-950/30 flex items-center justify-center p-4">
       <Card className="w-full max-w-5xl mx-auto overflow-hidden border-0 shadow-xl rounded-2xl">
         <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Left side: Illustration */}
           <div className="relative hidden md:block bg-gradient-to-br from-indigo-500 to-purple-600 p-8">
-            <div className="absolute inset-0 bg-[url('/lovable-uploads/8d06bee3-12a7-43a3-93bc-a3f0bf605872.png')] bg-center bg-no-repeat bg-contain opacity-90"></div>
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/80 to-purple-600/80"></div>
-            
-            <div className="relative z-10 h-full flex flex-col">
+            <div className="relative h-full z-10 flex flex-col">
               <h2 className="text-2xl font-bold text-white mb-2">Manage your inventory the easiest way</h2>
               <p className="text-white/90 mb-6">
                 Enjoy an easy to use inventory system for the management of your business products
               </p>
               
-              <div className="mt-auto">
-                <img src="/lovable-uploads/8d06bee3-12a7-43a3-93bc-a3f0bf605872.png" alt="Illustration" className="w-3/4 h-auto mx-auto" />
+              <div className="mt-4 flex-grow flex items-center justify-center">
+                <img 
+                  src="/lovable-uploads/8d06bee3-12a7-43a3-93bc-a3f0bf605872.png" 
+                  alt="Inventory Management" 
+                  className="w-full h-auto max-w-md" 
+                />
               </div>
             </div>
           </div>
           
           {/* Right side: Signup form */}
-          <div className="p-8 bg-white dark:bg-gray-900 flex flex-col">
+          <div className="p-8 md:p-10 lg:p-12 bg-white dark:bg-gray-900 flex flex-col">
             <div className="mb-6 text-left">
               <h1 className="text-3xl font-bold tracking-tight text-purple-700 dark:text-purple-400">
                 Create an Account
@@ -137,6 +151,7 @@ const Signup: React.FC = () => {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
+                    placeholder="Create password"
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     className="h-12 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 pr-10"
@@ -163,6 +178,7 @@ const Signup: React.FC = () => {
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
+                    placeholder="Confirm password"
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     className="h-12 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 pr-10"
@@ -222,7 +238,7 @@ const Signup: React.FC = () => {
                 )}
               </Button>
               
-              <div className="text-center">
+              <div className="text-center mt-4">
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
                   Already have an account?{" "}
                   <Link to="/login" className="text-purple-600 hover:underline dark:text-purple-400 font-medium">
@@ -233,12 +249,19 @@ const Signup: React.FC = () => {
             </form>
             
             <div className="mt-8">
-              <div className="flex justify-center items-center gap-4">
-                <img src="/lovable-uploads/21206511-7c47-44cf-893b-2a6de7d893fc.png" alt="App Store" className="h-8" />
-                <img src="/lovable-uploads/21206511-7c47-44cf-893b-2a6de7d893fc.png" alt="Google Play" className="h-8" />
+              <div className="flex flex-col space-y-4">
                 <div className="flex items-center">
-                  <span className="font-bold text-xl">Inven</span>
-                  <span className="bg-yellow-400 text-black font-bold text-xl px-1 rounded">+</span>
+                  <div className="h-px bg-gray-300 flex-grow mr-3"></div>
+                  <span className="text-sm text-gray-500">or continue with</span>
+                  <div className="h-px bg-gray-300 flex-grow ml-3"></div>
+                </div>
+                <div className="flex justify-center items-center gap-4">
+                  <img src="/lovable-uploads/21206511-7c47-44cf-893b-2a6de7d893fc.png" alt="App Store" className="h-8" />
+                  <img src="/lovable-uploads/21206511-7c47-44cf-893b-2a6de7d893fc.png" alt="Google Play" className="h-8" />
+                  <div className="flex items-center">
+                    <span className="font-bold text-xl">Inven</span>
+                    <span className="bg-yellow-400 text-black font-bold text-xl px-1 rounded">+</span>
+                  </div>
                 </div>
               </div>
             </div>

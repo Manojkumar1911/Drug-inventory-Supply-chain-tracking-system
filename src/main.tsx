@@ -8,7 +8,9 @@ import { ThemeProvider } from './context/ThemeContext.tsx'
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider>
-      <App />
+      <div className="min-h-screen bg-background font-sans antialiased">
+        <App />
+      </div>
     </ThemeProvider>
   </React.StrictMode>,
 )
