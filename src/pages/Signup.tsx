@@ -97,13 +97,32 @@ const Signup: React.FC = () => {
         <Card className="w-full max-w-5xl mx-auto overflow-hidden border-0 shadow-xl rounded-2xl">
           <div className="grid grid-cols-1 md:grid-cols-2">
             {/* Left side: Illustration */}
-            <div className="relative hidden md:block p-0">
+            <div className="relative hidden md:block bg-gradient-to-br from-purple-600 to-indigo-700 p-0">
               <img 
                 src="/lovable-uploads/8d06bee3-12a7-43a3-93bc-a3f0bf605872.png" 
                 alt="Inventory Management" 
-                className="w-full h-full object-cover mix-blend-normal"
+                className="w-full h-full object-cover mix-blend-overlay opacity-60"
                 style={{ objectFit: "cover", objectPosition: "center" }}
               />
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/90 to-indigo-700/90 mix-blend-multiply"></div>
+              <div className="absolute inset-0 flex flex-col justify-center items-center text-white p-8">
+                <motion.h2 
+                  className="text-4xl font-bold mb-4"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.7, delay: 0.3 }}
+                >
+                  Join PharmaLink
+                </motion.h2>
+                <motion.p
+                  className="text-lg text-center"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.7, delay: 0.5 }}
+                >
+                  Smart inventory management for modern pharmacies
+                </motion.p>
+              </div>
             </div>
             
             {/* Right side: Signup form */}

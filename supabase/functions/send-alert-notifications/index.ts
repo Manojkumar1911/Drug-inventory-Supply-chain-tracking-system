@@ -7,8 +7,8 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") || "https://labzxhoshhzfixlzccr
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Configure Resend for email notifications
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
+// Configure MailSender for email notifications
+const MAILSENDER_API_KEY = Deno.env.get("MAILSENDER_API_KEY") || "mlsn.16d8959d58e1a06cb000a134adef684775f457668c54020f110ca070e68c40c4";
 
 // Configure Twilio for SMS notifications
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
@@ -16,7 +16,7 @@ const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
 const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER") || "";
 
 // Default contact for testing
-const DEFAULT_EMAIL = "manojs3274@gmail.com"; // Changed to match the validation error message
+const DEFAULT_EMAIL = "manojinsta19@gmail.com";
 const DEFAULT_PHONE = "+919600943274"; // Adding the country code for Twilio
 
 const corsHeaders = {
@@ -25,29 +25,27 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// This function sends an email notification using Resend with rate limiting
+// This function sends an email notification using MailSender with rate limiting
 async function sendEmailNotification(recipient: string, subject: string, body: string) {
-  if (!RESEND_API_KEY) {
-    console.error("RESEND_API_KEY not configured");
+  if (!MAILSENDER_API_KEY) {
+    console.error("MAILSENDER_API_KEY not configured");
     return { success: false, error: "Email service not configured" };
   }
 
   try {
     console.log(`Attempting to send email to: ${recipient}`);
     
-    // Add delay to prevent rate limiting (Resend allows 2 requests per second)
+    // Add delay to prevent rate limiting
     await new Promise(resolve => setTimeout(resolve, 600)); // 600ms delay
     
-    // Fix: Use the correct "from" email address that matches the intended recipient's domain
-    // For testing, using the verified domain/address allowed by Resend
-    const response = await fetch("https://api.resend.com/emails", {
+    const response = await fetch("https://api.mailsender.com/v1/email/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Authorization": `Bearer ${MAILSENDER_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "PharmaLink <manojs3274@gmail.com>", // Using user's verified email address
+        from: "PharmaLink <alerts@pharmalink.com>",
         to: recipient || DEFAULT_EMAIL,
         subject: subject,
         html: body,
@@ -128,10 +126,9 @@ async function createAlertInDatabase(product: any, daysUntilExpiry: number) {
 }
 
 // This function handles notifications for low stock products
-async function notifyLowStockProducts() {
+async function notifyLowStockProducts(emailRecipient: string = DEFAULT_EMAIL) {
   try {
     // Find products with quantity below reorder level
-    // Fix: Using the correct method for comparing numeric columns
     const { data: lowStockProducts, error } = await supabase
       .from("products")
       .select("*, suppliers(email, phone_number, name)")
@@ -176,9 +173,9 @@ async function notifyLowStockProducts() {
         `;
         const smsMessage = `ALERT: ${product.name} (SKU: ${product.sku}) is below reorder level. Current qty: ${product.quantity} ${product.unit}. Location: ${product.location}`;
 
-        // Send to default contact for testing
+        // Send to recipient
         const emailResult = await sendEmailNotification(
-          DEFAULT_EMAIL,
+          emailRecipient,
           subject,
           emailBody
         );
@@ -208,7 +205,7 @@ async function notifyLowStockProducts() {
 }
 
 // This function handles inter-inventory transfer recommendations
-async function recommendInventoryTransfers() {
+async function recommendInventoryTransfers(emailRecipient: string = DEFAULT_EMAIL) {
   try {
     // Get all locations
     const { data: locations, error: locationError } = await supabase
@@ -222,7 +219,7 @@ async function recommendInventoryTransfers() {
       return { success: true, message: "Not enough locations for transfers" };
     }
     
-    // Get all low stock products - fix the comparison method
+    // Get all low stock products
     const { data: lowStockProducts, error: productError } = await supabase
       .from("products")
       .select("*")
@@ -287,7 +284,7 @@ async function recommendInventoryTransfers() {
           
           // Send email notification
           await sendEmailNotification(
-            DEFAULT_EMAIL,
+            emailRecipient,
             `Inventory Transfer Request: ${product.name}`,
             `
             <h2>Inventory Transfer Request</h2>
@@ -307,7 +304,7 @@ async function recommendInventoryTransfers() {
           await new Promise(resolve => setTimeout(resolve, 500));
           
           await sendEmailNotification(
-            DEFAULT_EMAIL,
+            emailRecipient,
             `Incoming Inventory Transfer: ${product.name}`,
             `
             <h2>Incoming Inventory Transfer</h2>
@@ -339,7 +336,7 @@ async function recommendInventoryTransfers() {
 }
 
 // This function checks for expiring products
-async function checkExpiringProducts() {
+async function checkExpiringProducts(emailRecipient: string = DEFAULT_EMAIL) {
   try {
     // Calculate the date 90 days from now
     const today = new Date();
@@ -394,9 +391,9 @@ async function checkExpiringProducts() {
       // Add delays between sending emails/SMS to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Send to default contact for testing
+      // Send to specified recipient
       const emailResult = await sendEmailNotification(
-        DEFAULT_EMAIL,
+        emailRecipient,
         subject,
         emailBody
       );
@@ -448,27 +445,28 @@ serve(async (req) => {
     // Parse request to determine which checks to run
     const requestData = await req.json().catch(() => ({}));
     const checkType = requestData.checkType || "all";
+    const emailRecipient = requestData.emailRecipient || DEFAULT_EMAIL;
     
     let result;
     
     switch (checkType) {
       case "expiry":
-        result = await checkExpiringProducts();
+        result = await checkExpiringProducts(emailRecipient);
         break;
       case "stock":
-        result = await notifyLowStockProducts();
+        result = await notifyLowStockProducts(emailRecipient);
         break;
       case "transfers":
-        result = await recommendInventoryTransfers();
+        result = await recommendInventoryTransfers(emailRecipient);
         break;
       case "all":
       default:
         // Run checks sequentially with delays to avoid rate limiting
-        const expiryResult = await checkExpiringProducts();
+        const expiryResult = await checkExpiringProducts(emailRecipient);
         await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay
-        const stockResult = await notifyLowStockProducts();
+        const stockResult = await notifyLowStockProducts(emailRecipient);
         await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay
-        const transfersResult = await recommendInventoryTransfers();
+        const transfersResult = await recommendInventoryTransfers(emailRecipient);
         
         result = {
           success: expiryResult.success && stockResult.success && transfersResult.success,

@@ -1,310 +1,360 @@
 
-import { toast } from "sonner";
+// Performance Monitoring Utility
 
-// Types for our metrics
+interface PerformanceMeasure {
+  name: string;
+  value: number;
+  unit: string;
+}
+
 interface PerformanceMetrics {
-  // Core Web Vitals & Performance
-  fcp: number | null;  // First Contentful Paint
-  lcp: number | null;  // Largest Contentful Paint
-  fid: number | null;  // First Input Delay
-  cls: number | null;  // Cumulative Layout Shift
-  ttfb: number | null; // Time to First Byte
-  
-  // User Interaction
-  avgPageLoadTime: number | null;
-  avgApiResponseTime: number | null;
-  
-  // App Specific
-  inventoryOperations: {
-    createProduct: number | null;
-    updateProduct: number | null;
-    transferProduct: number | null;
-    generateForecast: number | null;
+  navigation: {
+    type: string;
+    redirectCount: number;
+    loadEventTime: number;
+    domContentLoadedTime: number;
+    domInteractiveTime: number;
+    domCompleteTime: number;
   };
-  
-  // Error Rates
-  errorCount: {
-    api4xx: number;
-    api5xx: number;
-    jsErrors: number;
+  timing: {
+    fetchStart: number;
+    domainLookupStart: number;
+    domainLookupEnd: number;
+    connectStart: number;
+    connectEnd: number;
+    secureConnectionStart: number;
+    requestStart: number;
+    responseStart: number;
+    responseEnd: number;
+    domLoading: number;
+    domInteractive: number;
+    domContentLoadedEventStart: number;
+    domContentLoadedEventEnd: number;
+    domComplete: number;
+    loadEventStart: number;
+    loadEventEnd: number;
   };
+  paint: {
+    firstPaint: number;
+    firstContentfulPaint: number;
+  };
+  memory: {
+    jsHeapSizeLimit: number;
+    totalJSHeapSize: number;
+    usedJSHeapSize: number;
+  };
+  measures: PerformanceMeasure[];
 }
 
 class PerformanceMonitor {
-  private metrics: PerformanceMetrics;
-  private apiStartTimes: Map<string, number>;
-  private apiEndpoints: string[];
-  
+  private metrics: PerformanceMetrics | null = null;
+  private timeOrigin: number;
+  private customMeasures: Map<string, PerformanceMeasure> = new Map();
+
   constructor() {
-    this.metrics = {
-      fcp: null,
-      lcp: null,
-      fid: null,
-      cls: null,
-      ttfb: null,
-      avgPageLoadTime: null,
-      avgApiResponseTime: null,
-      inventoryOperations: {
-        createProduct: null,
-        updateProduct: null,
-        transferProduct: null,
-        generateForecast: null,
-      },
-      errorCount: {
-        api4xx: 0,
-        api5xx: 0,
-        jsErrors: 0,
-      }
-    };
-    
-    this.apiStartTimes = new Map();
-    this.apiEndpoints = [
-      '/products',
-      '/alerts',
-      '/analytics',
-      '/users',
-      '/locations',
-      '/suppliers',
-      '/transfers'
-    ];
-    
-    // Initialize monitoring
-    this.init();
-  }
-  
-  private init(): void {
-    if (typeof window === 'undefined') return;
-    
-    // Track core web vitals
-    this.trackCoreWebVitals();
-    
-    // Track page load time
-    this.trackPageLoadTime();
-    
-    // Track JS errors
-    this.trackJsErrors();
-    
-    // Track API response times
-    this.trackApiPerformance();
-  }
-  
-  private trackCoreWebVitals(): void {
-    // Use Performance Observer to track metrics
-    try {
-      if ('PerformanceObserver' in window) {
-        // Track FCP
-        new PerformanceObserver((entryList) => {
-          const entries = entryList.getEntries();
-          if (entries.length > 0) {
-            this.metrics.fcp = entries[0].startTime;
-            console.log('FCP:', this.metrics.fcp);
-          }
-        }).observe({ type: 'paint', buffered: true });
-        
-        // Track LCP
-        new PerformanceObserver((entryList) => {
-          const entries = entryList.getEntries();
-          if (entries.length > 0) {
-            // Get the latest entry
-            const lcpEntry = entries[entries.length - 1];
-            this.metrics.lcp = lcpEntry.startTime;
-            console.log('LCP:', this.metrics.lcp);
-          }
-        }).observe({ type: 'largest-contentful-paint', buffered: true });
-        
-        // Track FID
-        new PerformanceObserver((entryList) => {
-          const entries = entryList.getEntries();
-          if (entries.length > 0) {
-            this.metrics.fid = entries[0].processingStart - entries[0].startTime;
-            console.log('FID:', this.metrics.fid);
-          }
-        }).observe({ type: 'first-input', buffered: true });
-        
-        // Track CLS
-        let clsValue = 0;
-        let clsEntries: any[] = [];
-        
-        new PerformanceObserver((entryList) => {
-          const entries = entryList.getEntries();
-          entries.forEach(entry => {
-            // Only count layout shifts without recent user input
-            if (!(entry as any).hadRecentInput) {
-              const firstSessionEntry = clsEntries.length === 0;
-              const entryTime = entry.startTime;
-              
-              // If it's the first entry or occurs less than 1s after the previous entry
-              if (firstSessionEntry || entryTime - clsEntries[clsEntries.length - 1].startTime < 1000) {
-                clsEntries.push(entry);
-              } else {
-                // Start a new session
-                clsEntries = [entry];
-              }
-              
-              // Calculate CLS for this session
-              let sessionValue = 0;
-              clsEntries.forEach(sessionEntry => {
-                sessionValue += (sessionEntry as any).value;
-              });
-              
-              if (sessionValue > clsValue) {
-                clsValue = sessionValue;
-                this.metrics.cls = clsValue;
-                console.log('CLS:', this.metrics.cls);
-              }
+    this.timeOrigin = performance.timeOrigin || 0;
+
+    // Set up listeners for performance events
+    if (typeof PerformanceObserver !== 'undefined') {
+      try {
+        // Observe paint events
+        const paintObserver = new PerformanceObserver((list) => {
+          list.getEntries().forEach((entry) => {
+            if (entry.name === 'first-paint') {
+              this.addCustomMeasure('firstPaint', entry.startTime, 'ms');
+            } else if (entry.name === 'first-contentful-paint') {
+              this.addCustomMeasure('firstContentfulPaint', entry.startTime, 'ms');
             }
           });
-        }).observe({ type: 'layout-shift', buffered: true });
-      }
-      
-      // Track TTFB
-      const navigationEntries = performance.getEntriesByType('navigation');
-      if (navigationEntries.length > 0) {
-        this.metrics.ttfb = (navigationEntries[0] as PerformanceNavigationTiming).responseStart;
-        console.log('TTFB:', this.metrics.ttfb);
-      }
-    } catch (e) {
-      console.error('Error tracking Core Web Vitals:', e);
-    }
-  }
-  
-  private trackPageLoadTime(): void {
-    try {
-      window.addEventListener('load', () => {
-        setTimeout(() => {
-          const pageNavigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-          if (pageNavigation) {
-            this.metrics.avgPageLoadTime = pageNavigation.loadEventEnd - pageNavigation.startTime;
-            console.log('Page Load Time:', this.metrics.avgPageLoadTime);
-          }
-        }, 0);
-      });
-    } catch (e) {
-      console.error('Error tracking page load time:', e);
-    }
-  }
-  
-  private trackJsErrors(): void {
-    try {
-      window.addEventListener('error', (event) => {
-        this.metrics.errorCount.jsErrors += 1;
-        console.log('JS Error:', event.error);
-      });
-    } catch (e) {
-      console.error('Error setting up error tracking:', e);
-    }
-  }
-  
-  private trackApiPerformance(): void {
-    try {
-      // Create a proxy for the fetch function to monitor API calls
-      const originalFetch = window.fetch;
-      
-      window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input.url;
-        
-        // Check if this is an API endpoint we want to track
-        const shouldTrack = this.apiEndpoints.some(endpoint => url.includes(endpoint));
-        
-        if (shouldTrack) {
-          const startTime = performance.now();
-          this.apiStartTimes.set(url, startTime);
-          
-          try {
-            const response = await originalFetch(input, init);
-            const endTime = performance.now();
-            const duration = endTime - startTime;
-            
-            // Track average API response time
-            if (!this.metrics.avgApiResponseTime) {
-              this.metrics.avgApiResponseTime = duration;
-            } else {
-              this.metrics.avgApiResponseTime = (this.metrics.avgApiResponseTime + duration) / 2;
+        });
+        paintObserver.observe({ entryTypes: ['paint'] });
+
+        // Observe long tasks
+        const longTaskObserver = new PerformanceObserver((list) => {
+          list.getEntries().forEach((entry) => {
+            console.log('Long task detected:', entry);
+            this.addCustomMeasure('longTask', entry.duration, 'ms');
+          });
+        });
+        longTaskObserver.observe({ entryTypes: ['longtask'] });
+
+        // Observe layout shifts
+        const layoutShiftObserver = new PerformanceObserver((list) => {
+          let cumulativeLayoutShift = 0;
+          list.getEntries().forEach((entry) => {
+            // @ts-ignore: LayoutShift is a web API type not in TypeScript
+            if (!entry.hadRecentInput) {
+              // @ts-ignore
+              cumulativeLayoutShift += entry.value;
             }
-            
-            // Track error rates
-            if (response.status >= 400 && response.status < 500) {
-              this.metrics.errorCount.api4xx += 1;
-            } else if (response.status >= 500) {
-              this.metrics.errorCount.api5xx += 1;
-            }
-            
-            console.log(`API ${url} - Response time:`, duration.toFixed(2), 'ms');
-            
-            return response;
-          } catch (error) {
-            this.metrics.errorCount.api5xx += 1;
-            console.error(`API ${url} - Error:`, error);
-            throw error;
+          });
+          this.addCustomMeasure('cumulativeLayoutShift', cumulativeLayoutShift, '');
+        });
+        layoutShiftObserver.observe({ entryTypes: ['layout-shift'] });
+
+        // Observe largest contentful paint
+        const lcpObserver = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          const lastEntry = entries[entries.length - 1];
+          if (lastEntry) {
+            this.addCustomMeasure('largestContentfulPaint', lastEntry.startTime, 'ms');
           }
+        });
+        lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
+
+        // Observe first input delay
+        const fidObserver = new PerformanceObserver((list) => {
+          list.getEntries().forEach((entry) => {
+            this.addCustomMeasure('firstInputDelay', entry.processingStart - entry.startTime, 'ms');
+          });
+        });
+        fidObserver.observe({ entryTypes: ['first-input'] });
+
+      } catch (e) {
+        console.warn('Performance observer not fully supported', e);
+      }
+    }
+  }
+
+  /**
+   * Start measuring a specific operation
+   */
+  public startMeasure(name: string): void {
+    if (typeof performance.mark === 'function') {
+      try {
+        performance.mark(`${name}-start`);
+      } catch (e) {
+        console.warn(`Failed to start performance measure: ${name}`, e);
+      }
+    }
+  }
+
+  /**
+   * End measuring a specific operation and record it
+   */
+  public endMeasure(name: string): void {
+    if (typeof performance.mark === 'function' && typeof performance.measure === 'function') {
+      try {
+        performance.mark(`${name}-end`);
+        performance.measure(name, `${name}-start`, `${name}-end`);
+
+        // Record the measure
+        const entries = performance.getEntriesByName(name, 'measure');
+        if (entries.length > 0) {
+          this.addCustomMeasure(name, entries[0].duration, 'ms');
         }
+      } catch (e) {
+        console.warn(`Failed to end performance measure: ${name}`, e);
+      }
+    }
+  }
+
+  /**
+   * Add a custom performance measure
+   */
+  public addCustomMeasure(name: string, value: number, unit: string): void {
+    this.customMeasures.set(name, { name, value, unit });
+  }
+
+  /**
+   * Collect all performance metrics
+   */
+  public collectMetrics(): PerformanceMetrics {
+    // Navigation timing
+    let timing: any = {};
+    let memory: any = { jsHeapSizeLimit: 0, totalJSHeapSize: 0, usedJSHeapSize: 0 };
+    let navigation: any = {};
+    let paint: any = { firstPaint: 0, firstContentfulPaint: 0 };
+
+    if (window.performance) {
+      // Get navigation timing data
+      if (performance.getEntriesByType && performance.getEntriesByType('navigation').length > 0) {
+        const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
         
-        return originalFetch(input, init);
-      };
-    } catch (e) {
-      console.error('Error setting up API performance tracking:', e);
+        timing = {
+          fetchStart: navEntry.fetchStart,
+          domainLookupStart: navEntry.domainLookupStart,
+          domainLookupEnd: navEntry.domainLookupEnd,
+          connectStart: navEntry.connectStart,
+          connectEnd: navEntry.connectEnd,
+          secureConnectionStart: navEntry.secureConnectionStart,
+          requestStart: navEntry.requestStart,
+          responseStart: navEntry.responseStart,
+          responseEnd: navEntry.responseEnd,
+          domLoading: navEntry.domContentLoadedEventStart - navEntry.fetchStart,
+          domInteractive: navEntry.domInteractive - navEntry.fetchStart,
+          domContentLoadedEventStart: navEntry.domContentLoadedEventStart - navEntry.fetchStart,
+          domContentLoadedEventEnd: navEntry.domContentLoadedEventEnd - navEntry.fetchStart,
+          domComplete: navEntry.domComplete - navEntry.fetchStart,
+          loadEventStart: navEntry.loadEventStart - navEntry.fetchStart,
+          loadEventEnd: navEntry.loadEventEnd - navEntry.fetchStart,
+        };
+        
+        navigation = {
+          type: navEntry.type,
+          redirectCount: navEntry.redirectCount,
+          loadEventTime: navEntry.loadEventEnd - navEntry.loadEventStart,
+          domContentLoadedTime: navEntry.domContentLoadedEventEnd - navEntry.domContentLoadedEventStart,
+          domInteractiveTime: navEntry.domInteractive - navEntry.fetchStart,
+          domCompleteTime: navEntry.domComplete - navEntry.fetchStart,
+        };
+      } else if ((performance as any).timing) {
+        // Fallback for older browsers
+        const t = (performance as any).timing;
+        
+        timing = {
+          navigationStart: 0,
+          fetchStart: t.fetchStart - t.navigationStart,
+          domainLookupStart: t.domainLookupStart - t.navigationStart,
+          domainLookupEnd: t.domainLookupEnd - t.navigationStart,
+          connectStart: t.connectStart - t.navigationStart,
+          connectEnd: t.connectEnd - t.navigationStart,
+          secureConnectionStart: t.secureConnectionStart ? t.secureConnectionStart - t.navigationStart : 0,
+          requestStart: t.requestStart - t.navigationStart,
+          responseStart: t.responseStart - t.navigationStart,
+          responseEnd: t.responseEnd - t.navigationStart,
+          domLoading: t.domLoading - t.navigationStart,
+          domInteractive: t.domInteractive - t.navigationStart,
+          domContentLoadedEventStart: t.domContentLoadedEventStart - t.navigationStart,
+          domContentLoadedEventEnd: t.domContentLoadedEventEnd - t.navigationStart,
+          domComplete: t.domComplete - t.navigationStart,
+          loadEventStart: t.loadEventStart - t.navigationStart,
+          loadEventEnd: t.loadEventEnd - t.navigationStart
+        };
+        
+        navigation = {
+          type: (performance as any).navigation?.type || 'unknown',
+          redirectCount: (performance as any).navigation?.redirectCount || 0,
+          loadEventTime: t.loadEventEnd - t.loadEventStart,
+          domContentLoadedTime: t.domContentLoadedEventEnd - t.domContentLoadedEventStart,
+          domInteractiveTime: t.domInteractive - t.navigationStart,
+          domCompleteTime: t.domComplete - t.navigationStart
+        };
+      }
+
+      // Get paint metrics
+      const paintEntries = performance.getEntriesByType('paint');
+      paintEntries.forEach(entry => {
+        if (entry.name === 'first-paint') {
+          paint.firstPaint = entry.startTime;
+        } else if (entry.name === 'first-contentful-paint') {
+          paint.firstContentfulPaint = entry.startTime;
+        }
+      });
+
+      // Get memory info if available (Chrome only)
+      if ((performance as any).memory) {
+        memory = {
+          jsHeapSizeLimit: (performance as any).memory.jsHeapSizeLimit,
+          totalJSHeapSize: (performance as any).memory.totalJSHeapSize,
+          usedJSHeapSize: (performance as any).memory.usedJSHeapSize
+        };
+      }
     }
-  }
-  
-  // Methods for inventory-specific operations timing
-  public startOperationTiming(operation: keyof PerformanceMetrics['inventoryOperations']): void {
-    const key = `${operation}_start`;
-    (this as any)[key] = performance.now();
-  }
-  
-  public endOperationTiming(operation: keyof PerformanceMetrics['inventoryOperations']): void {
-    const startKey = `${operation}_start`;
-    if ((this as any)[startKey]) {
-      const duration = performance.now() - (this as any)[startKey];
-      this.metrics.inventoryOperations[operation] = duration;
-      console.log(`Operation ${operation} took ${duration.toFixed(2)} ms`);
-    }
-  }
-  
-  // Get current metrics
-  public getMetrics(): PerformanceMetrics {
+
+    // Compile and store all metrics
+    this.metrics = {
+      navigation,
+      timing,
+      paint,
+      memory,
+      measures: Array.from(this.customMeasures.values())
+    };
+
     return this.metrics;
   }
-  
-  // Log metrics to console
+
+  /**
+   * Log all performance metrics to console
+   */
   public logMetrics(): void {
-    console.log('Performance Metrics:', this.metrics);
+    const metrics = this.collectMetrics();
+    
+    console.group('📊 Performance Metrics');
+    
+    console.log('⏱️ Navigation Timing:');
+    console.table({
+      'Load Time': `${Math.round(metrics.navigation.loadEventTime)}ms`,
+      'DOMContentLoaded': `${Math.round(metrics.navigation.domContentLoadedTime)}ms`,
+      'DOM Interactive': `${Math.round(metrics.navigation.domInteractiveTime)}ms`,
+      'DOM Complete': `${Math.round(metrics.navigation.domCompleteTime)}ms`,
+    });
+    
+    console.log('🎨 Paint Metrics:');
+    console.table({
+      'First Paint': `${Math.round(metrics.paint.firstPaint)}ms`,
+      'First Contentful Paint': `${Math.round(metrics.paint.firstContentfulPaint)}ms`,
+    });
+    
+    if (metrics.memory.jsHeapSizeLimit > 0) {
+      console.log('💾 Memory Usage:');
+      console.table({
+        'Used JS Heap': `${Math.round(metrics.memory.usedJSHeapSize / 1048576)}MB`,
+        'Total JS Heap': `${Math.round(metrics.memory.totalJSHeapSize / 1048576)}MB`,
+        'JS Heap Limit': `${Math.round(metrics.memory.jsHeapSizeLimit / 1048576)}MB`,
+      });
+    }
+    
+    if (metrics.measures.length > 0) {
+      console.log('📏 Custom Measurements:');
+      const customData: Record<string, string> = {};
+      metrics.measures.forEach(measure => {
+        customData[measure.name] = `${Math.round(measure.value * 100) / 100}${measure.unit}`;
+      });
+      console.table(customData);
+    }
+    
+    console.log('🔍 Detailed Timing:');
+    console.table({
+      'DNS Lookup': `${Math.round(metrics.timing.domainLookupEnd - metrics.timing.domainLookupStart)}ms`,
+      'TCP Connection': `${Math.round(metrics.timing.connectEnd - metrics.timing.connectStart)}ms`,
+      'Request': `${Math.round(metrics.timing.responseStart - metrics.timing.requestStart)}ms`,
+      'Response': `${Math.round(metrics.timing.responseEnd - metrics.timing.responseStart)}ms`,
+      'DOM Processing': `${Math.round(metrics.timing.domComplete - metrics.timing.responseEnd)}ms`,
+    });
+    
+    console.groupEnd();
   }
-  
-  // Save metrics to session storage
+
+  /**
+   * Save metrics to sessionStorage for later analysis
+   */
   public saveMetrics(): void {
+    const metrics = this.collectMetrics();
     try {
-      sessionStorage.setItem('performanceMetrics', JSON.stringify(this.metrics));
-      toast.success("Performance metrics saved to session storage");
+      sessionStorage.setItem('performanceMetrics', JSON.stringify(metrics));
+      console.info('Performance metrics saved to sessionStorage');
     } catch (e) {
-      console.error('Error saving metrics:', e);
-      toast.error("Failed to save performance metrics");
+      console.warn('Failed to save performance metrics to sessionStorage', e);
     }
   }
-  
-  // Export metrics as JSON file
-  public exportMetrics(): void {
+
+  /**
+   * Get previously saved metrics
+   */
+  public getSavedMetrics(): PerformanceMetrics | null {
     try {
-      const dataStr = JSON.stringify(this.metrics, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `pharmalink_metrics_${new Date().toISOString()}.json`;
-      link.click();
-      
-      URL.revokeObjectURL(url);
-      toast.success("Performance metrics exported successfully");
+      const savedMetrics = sessionStorage.getItem('performanceMetrics');
+      return savedMetrics ? JSON.parse(savedMetrics) : null;
     } catch (e) {
-      console.error('Error exporting metrics:', e);
-      toast.error("Failed to export metrics");
+      console.warn('Failed to retrieve saved performance metrics', e);
+      return null;
+    }
+  }
+
+  /**
+   * Clear all custom measures
+   */
+  public clearMeasures(): void {
+    this.customMeasures.clear();
+    if (typeof performance.clearMarks === 'function') {
+      performance.clearMarks();
+    }
+    if (typeof performance.clearMeasures === 'function') {
+      performance.clearMeasures();
     }
   }
 }
 
-// Create and export a singleton instance
+// Create a singleton instance
 export const performanceMonitor = new PerformanceMonitor();
-
-// Export the PerformanceMetrics interface
-export type { PerformanceMetrics };

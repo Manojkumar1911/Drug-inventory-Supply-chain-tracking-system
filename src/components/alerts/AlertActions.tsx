@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 interface AlertActionsProps {
   className?: string;
@@ -37,7 +38,7 @@ const AlertActions: React.FC<AlertActionsProps> = ({ className }) => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session?.access_token || ""}`
         },
-        body: JSON.stringify({ checkType })
+        body: JSON.stringify({ checkType, emailRecipient: "manojinsta19@gmail.com" })
       });
       
       const result = await response.json();
@@ -101,7 +102,12 @@ const AlertActions: React.FC<AlertActionsProps> = ({ className }) => {
   const buttonSparkleClass = "relative overflow-hidden after:content-[''] after:absolute after:w-full after:h-full after:left-0 after:top-0 after:bg-white after:opacity-0 after:mix-blend-screen hover:after:opacity-40 hover:after:transition-all hover:after:duration-700 after:animate-sparkle";
 
   return (
-    <div className={`flex flex-wrap gap-3 ${className}`}>
+    <motion.div 
+      className={`flex flex-wrap gap-3 ${className}`}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.1 }}
+    >
       <Button 
         variant="outline"
         className={`gap-2 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 hover:from-yellow-500/20 hover:to-amber-500/20 hover:shadow-glow-yellow transition-all duration-300 ${buttonSparkleClass}`}
@@ -188,7 +194,7 @@ const AlertActions: React.FC<AlertActionsProps> = ({ className }) => {
           </>
         )}
       </Button>
-    </div>
+    </motion.div>
   );
 };
 

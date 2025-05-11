@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { Resend } from "https://esm.sh/resend@0.16.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,13 +13,12 @@ serve(async (req) => {
   }
 
   try {
-    // Get the resend API key from environment variables
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      throw new Error("RESEND_API_KEY environment variable is not set");
+    // Get the MailSender API key from environment variables
+    const mailSenderApiKey = Deno.env.get("MAILSENDER_API_KEY") || "mlsn.16d8959d58e1a06cb000a134adef684775f457668c54020f110ca070e68c40c4";
+    if (!mailSenderApiKey) {
+      throw new Error("MAILSENDER_API_KEY environment variable is not set");
     }
 
-    const resend = new Resend(resendApiKey);
     const { product, recipient } = await req.json();
     
     if (!product || !recipient) {
@@ -36,15 +34,15 @@ serve(async (req) => {
       );
     }
 
-    // During testing, we'll only allow sending emails to the user's own email address
-    // In production, you would verify a domain and use your own domain for sending emails
-    const from = "alerts@pharmalink.com"; // This should be changed to a verified domain in production
+    // Set default recipient for testing
+    const to = recipient || "manojinsta19@gmail.com"; 
     
     const daysUntilExpiry = Math.ceil((new Date(product.expiry_date).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
     
+    // Prepare email data for MailSender API
     const emailData = {
-      from: from,
-      to: [recipient],
+      from: "alerts@pharmalink.com",
+      to: [to],
       subject: `Product Expiring Soon: ${product.name}`,
       html: `
         <h2>Product Expiration Alert</h2>
@@ -63,11 +61,20 @@ serve(async (req) => {
     
     console.log("Sending email with data:", JSON.stringify(emailData, null, 2));
 
-    // Uncomment this to actually send the email
-    const { data, error } = await resend.emails.send(emailData);
+    // Send email using MailSender API
+    const response = await fetch("https://api.mailsender.com/v1/email/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${mailSenderApiKey}`
+      },
+      body: JSON.stringify(emailData)
+    });
     
-    if (error) {
-      throw new Error(`Failed to send email: ${error.message}`);
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(`Failed to send email: ${result.message || response.statusText}`);
     }
 
     return new Response(
@@ -75,7 +82,7 @@ serve(async (req) => {
         success: true,
         message: "Alert email sent successfully",
         emailData,
-        data
+        data: result
       }),
       {
         status: 200,
