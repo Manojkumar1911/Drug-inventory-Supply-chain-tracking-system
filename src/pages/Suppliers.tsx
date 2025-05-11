@@ -26,16 +26,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { 
   Building2, 
   MoreHorizontal, 
   PlusCircle, 
   Search, 
   SlidersHorizontal,
-  ArrowUpDown,
   Phone,
   Mail,
-  Link,
+  Link as LinkIcon,
   MapPin,
   Check,
   X,
@@ -68,6 +76,15 @@ const Suppliers: React.FC = () => {
   const [showAddSupplier, setShowAddSupplier] = useState(false);
   const [showEditSupplier, setShowEditSupplier] = useState(false);
   const [currentSupplier, setCurrentSupplier] = useState<Supplier | null>(null);
+  const [newSupplier, setNewSupplier] = useState({
+    name: "",
+    contact_name: "",
+    email: "",
+    phone_number: "",
+    address: "",
+    website: "",
+    category: "General"
+  });
 
   useEffect(() => {
     loadSuppliers();
@@ -102,13 +119,22 @@ const Suppliers: React.FC = () => {
         
       if (error) throw error;
       
-      // Format data with product counts
+      // Format data with product counts and ensure type compatibility
       const supplierData = data.map(supplier => ({
-        ...supplier,
-        products_count: supplier.products?.length > 0 ? parseInt(supplier.products[0].count) : 0
-      }));
+        id: String(supplier.id),
+        name: supplier.name || '',
+        contact_name: supplier.contact_person || '',
+        email: supplier.email || '',
+        phone_number: supplier.phone_number || '',
+        address: supplier.address || '',
+        website: supplier.website || '',
+        category: supplier.category || 'General',
+        is_active: supplier.is_active,
+        products_count: supplier.products?.length > 0 ? parseInt(supplier.products[0].count) : 0,
+        created_at: supplier.created_at
+      })) as Supplier[];
       
-      setSuppliers(supplierData as Supplier[]);
+      setSuppliers(supplierData);
     } catch (error) {
       console.error("Error loading suppliers:", error);
       toast.error("Failed to load suppliers");
@@ -167,6 +193,88 @@ const Suppliers: React.FC = () => {
     }
   };
 
+  const handleAddSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const { data, error } = await supabase
+        .from('suppliers')
+        .insert([{
+          name: newSupplier.name,
+          contact_person: newSupplier.contact_name,
+          email: newSupplier.email,
+          phone_number: newSupplier.phone_number,
+          address: newSupplier.address,
+          website: newSupplier.website,
+          category: newSupplier.category,
+          is_active: true
+        }])
+        .select();
+      
+      if (error) throw error;
+      
+      toast.success("Supplier added successfully");
+      setShowAddSupplier(false);
+      setNewSupplier({
+        name: "",
+        contact_name: "",
+        email: "",
+        phone_number: "",
+        address: "",
+        website: "",
+        category: "General"
+      });
+      loadSuppliers();
+    } catch (error) {
+      console.error("Error adding supplier:", error);
+      toast.error("Failed to add supplier");
+    }
+  };
+
+  const handleUpdateSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentSupplier) return;
+    
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .update({
+          name: currentSupplier.name,
+          contact_person: currentSupplier.contact_name,
+          email: currentSupplier.email,
+          phone_number: currentSupplier.phone_number,
+          address: currentSupplier.address,
+          website: currentSupplier.website,
+          category: currentSupplier.category
+        })
+        .eq('id', currentSupplier.id);
+      
+      if (error) throw error;
+      
+      toast.success("Supplier updated successfully");
+      setShowEditSupplier(false);
+      loadSuppliers();
+    } catch (error) {
+      console.error("Error updating supplier:", error);
+      toast.error("Failed to update supplier");
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, isEdit = false) => {
+    const { name, value } = e.target;
+    
+    if (isEdit && currentSupplier) {
+      setCurrentSupplier({
+        ...currentSupplier,
+        [name]: value
+      });
+    } else {
+      setNewSupplier({
+        ...newSupplier,
+        [name]: value
+      });
+    }
+  };
+
   // Function to render the badge with proper styling based on active status
   const renderStatusBadge = (isActive: boolean) => {
     return isActive ? (
@@ -174,7 +282,7 @@ const Suppliers: React.FC = () => {
         Active
       </Badge>
     ) : (
-      <Badge variant="secondary">
+      <Badge variant="secondary" className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300">
         Inactive
       </Badge>
     );
@@ -190,7 +298,7 @@ const Suppliers: React.FC = () => {
           </p>
         </div>
         <Button 
-          className="gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+          className="gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 btn-hover-glow"
           onClick={() => setShowAddSupplier(true)}
         >
           <PlusCircle className="h-4 w-4" />
@@ -199,49 +307,73 @@ const Suppliers: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Suppliers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{suppliers.length}</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-800/20 border-green-200/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Active Suppliers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {suppliers.filter(s => s.is_active).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Categories</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {new Set(suppliers.map(s => s.category)).size}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Products Supplied</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {suppliers.reduce((acc, curr) => acc + curr.products_count, 0)}
-            </div>
-          </CardContent>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50 shadow-glow-blue/5 hover-lift">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Suppliers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{suppliers.length}</div>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-800/20 border-green-200/50 shadow-glow-green/5 hover-lift">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Active Suppliers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {suppliers.filter(s => s.is_active).length}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+        >
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200/50 shadow-glow-purple/5 hover-lift">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Categories</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {new Set(suppliers.map(s => s.category)).size}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.4 }}
+        >
+          <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200/50 shadow-glow-yellow/5 hover-lift">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Products Supplied</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {suppliers.reduce((acc, curr) => acc + curr.products_count, 0)}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
       <Card className="bg-gradient-to-br from-card to-muted/50">
         <CardHeader className="pb-3">
-          <CardTitle>Supplier Directory</CardTitle>
+          <CardTitle className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">Supplier Directory</CardTitle>
           <CardDescription>
             View and manage your pharmaceutical suppliers
           </CardDescription>
@@ -308,7 +440,7 @@ const Suppliers: React.FC = () => {
                               rel="noopener noreferrer"
                               className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 mt-1"
                             >
-                              <Link className="h-3 w-3" />
+                              <LinkIcon className="h-3 w-3" />
                               Website
                             </a>
                           )}
@@ -339,7 +471,7 @@ const Suppliers: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-800">
                           {supplier.category || "General"}
                         </Badge>
                       </TableCell>
@@ -352,7 +484,7 @@ const Suppliers: React.FC = () => {
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" className="hover:bg-muted/80">
                               <MoreHorizontal className="h-4 w-4" />
                               <span className="sr-only">Actions</span>
                             </Button>
@@ -393,8 +525,205 @@ const Suppliers: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Add Supplier Dialog would go here */}
-      {/* Edit Supplier Dialog would go here */}
+      {/* Add Supplier Dialog */}
+      <Dialog open={showAddSupplier} onOpenChange={setShowAddSupplier}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Supplier</DialogTitle>
+            <DialogDescription>
+              Add a new pharmaceutical supplier to your inventory system.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddSupplier}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="name" className="text-right text-sm font-medium">Name</label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={newSupplier.name}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="contact_name" className="text-right text-sm font-medium">Contact Person</label>
+                <Input
+                  id="contact_name"
+                  name="contact_name"
+                  value={newSupplier.contact_name}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="email" className="text-right text-sm font-medium">Email</label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={newSupplier.email}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="phone_number" className="text-right text-sm font-medium">Phone</label>
+                <Input
+                  id="phone_number"
+                  name="phone_number"
+                  value={newSupplier.phone_number}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="address" className="text-right text-sm font-medium">Address</label>
+                <Input
+                  id="address"
+                  name="address"
+                  value={newSupplier.address}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="website" className="text-right text-sm font-medium">Website</label>
+                <Input
+                  id="website"
+                  name="website"
+                  value={newSupplier.website}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="category" className="text-right text-sm font-medium">Category</label>
+                <select
+                  id="category"
+                  name="category"
+                  value={newSupplier.category}
+                  onChange={handleInputChange}
+                  className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="General">General</option>
+                  <option value="Pharmaceuticals">Pharmaceuticals</option>
+                  <option value="Medical Supplies">Medical Supplies</option>
+                  <option value="Equipment">Equipment</option>
+                  <option value="Laboratory">Laboratory</option>
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowAddSupplier(false)}>Cancel</Button>
+              <Button type="submit" className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">Add Supplier</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Supplier Dialog */}
+      <Dialog open={showEditSupplier} onOpenChange={setShowEditSupplier}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Supplier</DialogTitle>
+            <DialogDescription>
+              Update supplier information in your inventory system.
+            </DialogDescription>
+          </DialogHeader>
+          {currentSupplier && (
+            <form onSubmit={handleUpdateSupplier}>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-name" className="text-right text-sm font-medium">Name</label>
+                  <Input
+                    id="edit-name"
+                    name="name"
+                    value={currentSupplier.name}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-contact_name" className="text-right text-sm font-medium">Contact Person</label>
+                  <Input
+                    id="edit-contact_name"
+                    name="contact_name"
+                    value={currentSupplier.contact_name}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-email" className="text-right text-sm font-medium">Email</label>
+                  <Input
+                    id="edit-email"
+                    name="email"
+                    type="email"
+                    value={currentSupplier.email}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-phone_number" className="text-right text-sm font-medium">Phone</label>
+                  <Input
+                    id="edit-phone_number"
+                    name="phone_number"
+                    value={currentSupplier.phone_number}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-address" className="text-right text-sm font-medium">Address</label>
+                  <Input
+                    id="edit-address"
+                    name="address"
+                    value={currentSupplier.address}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-website" className="text-right text-sm font-medium">Website</label>
+                  <Input
+                    id="edit-website"
+                    name="website"
+                    value={currentSupplier.website}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-category" className="text-right text-sm font-medium">Category</label>
+                  <select
+                    id="edit-category"
+                    name="category"
+                    value={currentSupplier.category}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="General">General</option>
+                    <option value="Pharmaceuticals">Pharmaceuticals</option>
+                    <option value="Medical Supplies">Medical Supplies</option>
+                    <option value="Equipment">Equipment</option>
+                    <option value="Laboratory">Laboratory</option>
+                  </select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowEditSupplier(false)}>Cancel</Button>
+                <Button type="submit" className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">Update Supplier</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

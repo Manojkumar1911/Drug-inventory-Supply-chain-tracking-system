@@ -3,8 +3,8 @@ import express, { Request, Response } from 'express';
 
 const router = express.Router();
 
-// Define routes properly
-router.get('/settings', async (_req: Request, res: Response) => {
+// Define settings routes properly
+router.get('/', async (_req: Request, res: Response) => {
   try {
     // Implementation for getting settings
     return res.json({ message: "Settings retrieved successfully" });
@@ -13,7 +13,7 @@ router.get('/settings', async (_req: Request, res: Response) => {
   }
 });
 
-router.post('/settings', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     // Implementation for creating settings
     return res.json({ message: "Settings created successfully" });
@@ -22,7 +22,7 @@ router.post('/settings', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/settings/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
     // Implementation for updating settings
     return res.json({ message: "Settings updated successfully" });
@@ -31,7 +31,7 @@ router.put('/settings/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/settings/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
     // Implementation for deleting settings
     return res.json({ message: "Settings deleted successfully" });

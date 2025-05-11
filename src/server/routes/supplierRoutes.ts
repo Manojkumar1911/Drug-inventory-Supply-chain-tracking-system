@@ -4,7 +4,7 @@ import express, { Request, Response } from 'express';
 const router = express.Router();
 
 // Define routes properly
-router.get('/suppliers', async (_req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     // Implementation for getting suppliers
     return res.json({ message: "Suppliers retrieved successfully" });
@@ -13,7 +13,7 @@ router.get('/suppliers', async (_req: Request, res: Response) => {
   }
 });
 
-router.post('/suppliers', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     // Implementation for creating a supplier
     return res.json({ message: "Supplier created successfully" });
@@ -22,7 +22,7 @@ router.post('/suppliers', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/suppliers/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
     // Implementation for updating a supplier
     return res.json({ message: "Supplier updated successfully" });
@@ -31,7 +31,7 @@ router.put('/suppliers/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/suppliers/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
     // Implementation for deleting a supplier
     return res.json({ message: "Supplier deleted successfully" });
@@ -40,7 +40,7 @@ router.delete('/suppliers/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/suppliers/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
     // Implementation for getting a single supplier
     return res.json({ message: "Supplier retrieved successfully" });

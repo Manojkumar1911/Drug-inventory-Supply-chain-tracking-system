@@ -49,7 +49,6 @@ import {
   Users as UsersIcon
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import PageLoader from '@/components/ui/page-loader';
 import { motion } from 'framer-motion';
 
 interface User {
@@ -73,13 +72,31 @@ const Users: React.FC = () => {
     const loadUsers = async () => {
       setIsLoading(true);
       try {
-        const { data: { users }, error } = await supabase.auth.admin.listUsers();
+        const { data, error } = await supabase.auth.admin.listUsers();
         
         if (error) {
           throw error;
         }
         
-        setUsers(users);
+        if (data && data.users) {
+          // Type assertion to ensure compatibility
+          const formattedUsers: User[] = data.users.map(user => ({
+            id: user.id,
+            email: user.email || 'No email',
+            created_at: user.created_at,
+            role: user.role?.name || 'staff',
+            last_sign_in_at: user.last_sign_in_at,
+            user_metadata: {
+              name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+              avatar_url: user.user_metadata?.avatar_url
+            }
+          }));
+          setUsers(formattedUsers);
+        } else {
+          // Generate mock data if no users are returned
+          const mockUsers = generateMockUsers();
+          setUsers(mockUsers);
+        }
       } catch (error) {
         console.error('Error loading users:', error);
         toast.error('Failed to load users');
@@ -99,7 +116,7 @@ const Users: React.FC = () => {
   const generateMockUsers = (): User[] => {
     const roles = ['admin', 'manager', 'staff'];
     const domains = ['gmail.com', 'outlook.com', 'yahoo.com', 'company.com'];
-    const mockUsers = [];
+    const mockUsers: User[] = [];
     
     for (let i = 0; i < 10; i++) {
       const id = `user-${i+1}`;
@@ -141,6 +158,53 @@ const Users: React.FC = () => {
            role.includes(searchTerm);
   });
 
+  // Handle adding a new user
+  const handleAddUser = (userData: { name: string; email: string; role: string }) => {
+    // In a real app, this would call the appropriate API to create the user
+    toast.success(`Invitation sent to ${userData.email}!`, { 
+      description: 'User will receive an email to set up their account.' 
+    });
+    
+    // Add the new user to the list with mock data
+    const newUser: User = {
+      id: `user-${Date.now()}`,
+      email: userData.email,
+      created_at: new Date().toISOString(),
+      role: userData.role,
+      last_sign_in_at: null,
+      user_metadata: {
+        name: userData.name
+      }
+    };
+    
+    setUsers([...users, newUser]);
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    // In a real app, this would call the API to delete the user
+    setUsers(users.filter(user => user.id !== userId));
+    toast.error('User deleted', { 
+      description: 'User has been removed from the system'
+    });
+  };
+
+  const handleChangeUserRole = (userId: string, newRole: string) => {
+    // In a real app, this would call the API to update the user's role
+    const updatedUsers = users.map(user => {
+      if (user.id === userId) {
+        return { ...user, role: newRole };
+      }
+      return user;
+    });
+    
+    setUsers(updatedUsers);
+    const user = users.find(u => u.id === userId);
+    
+    toast.info('User role changed', { 
+      description: `${user?.email} is now a ${newRole.charAt(0).toUpperCase() + newRole.slice(1)}`
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -156,7 +220,7 @@ const Users: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50 shadow-glow-blue/5 hover-lift">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
           </CardHeader>
@@ -167,7 +231,7 @@ const Users: React.FC = () => {
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-900/20 dark:to-violet-800/20 border-violet-200/50">
+        <Card className="bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-900/20 dark:to-violet-800/20 border-violet-200/50 shadow-glow-purple/5 hover-lift">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Administrators</CardTitle>
           </CardHeader>
@@ -180,7 +244,7 @@ const Users: React.FC = () => {
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 border-emerald-200/50">
+        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 border-emerald-200/50 shadow-glow-green/5 hover-lift">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Last Active</CardTitle>
           </CardHeader>
@@ -200,9 +264,9 @@ const Users: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <Card>
+        <Card className="bg-gradient-to-br from-background to-muted/20">
           <CardHeader className="pb-3">
-            <CardTitle>User Management</CardTitle>
+            <CardTitle className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">User Management</CardTitle>
             <CardDescription>
               Add, edit, or remove users from your pharmaceutical system
             </CardDescription>
@@ -219,74 +283,16 @@ const Users: React.FC = () => {
                 />
               </div>
               
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="ml-auto gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
-                    <UserPlus className="h-4 w-4" />
-                    Add User
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Add New User</DialogTitle>
-                    <DialogDescription>
-                      Add a new user to your pharmacy system. They will receive an email invitation.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <label htmlFor="name" className="text-right text-sm font-medium col-span-1">
-                        Name
-                      </label>
-                      <Input
-                        id="name"
-                        placeholder="Enter full name"
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <label htmlFor="email" className="text-right text-sm font-medium col-span-1">
-                        Email
-                      </label>
-                      <Input
-                        id="email"
-                        placeholder="user@example.com"
-                        type="email"
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <label htmlFor="role" className="text-right text-sm font-medium col-span-1">
-                        Role
-                      </label>
-                      <select
-                        id="role"
-                        className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <option value="staff">Staff</option>
-                        <option value="manager">Manager</option>
-                        <option value="admin">Administrator</option>
-                      </select>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline">Cancel</Button>
-                    <Button 
-                      onClick={() => toast.success('Invitation sent!', { 
-                        description: 'User will receive an email to set up their account.' 
-                      })}
-                    >
-                      Send Invitation
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <AddUserDialog onAddUser={handleAddUser} />
             </div>
           </CardHeader>
           
           <CardContent>
             {isLoading ? (
-              <PageLoader message="Loading users..." />
+              <div className="flex flex-col items-center justify-center p-8">
+                <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mb-4"></div>
+                <p className="text-muted-foreground">Loading users...</p>
+              </div>
             ) : filteredUsers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <UsersIcon className="h-12 w-12 text-muted-foreground/60 mb-3" />
@@ -355,20 +361,30 @@ const Users: React.FC = () => {
                                 Edit user
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => toast.info('User role changed', { 
-                                  description: `${user.email} is now an Administrator`
-                                })}
-                              >
-                                <ShieldCheck className="h-4 w-4 mr-2 text-blue-500" />
-                                Change role
-                              </DropdownMenuItem>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <DropdownMenuItem>
+                                    <ShieldCheck className="h-4 w-4 mr-2 text-blue-500" />
+                                    Change role
+                                    <span className="ml-auto">▶</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent side="right">
+                                  <DropdownMenuItem onClick={() => handleChangeUserRole(user.id, 'admin')}>
+                                    Administrator
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleChangeUserRole(user.id, 'manager')}>
+                                    Manager
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleChangeUserRole(user.id, 'staff')}>
+                                    Staff
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 className="text-red-600"
-                                onClick={() => toast.error('User deleted', { 
-                                  description: `${user.email} has been removed from the system`
-                                })}
+                                onClick={() => handleDeleteUser(user.id)}
                               >
                                 <UserX className="h-4 w-4 mr-2" />
                                 Delete user
@@ -413,6 +429,106 @@ const RoleBadge: React.FC<{ role: string }> = ({ role }) => {
         </Badge>
       );
   }
+};
+
+// Add User Dialog Component
+interface AddUserDialogProps {
+  onAddUser: (userData: { name: string; email: string; role: string }) => void;
+}
+
+const AddUserDialog: React.FC<AddUserDialogProps> = ({ onAddUser }) => {
+  const [open, setOpen] = useState(false);
+  const [userData, setUserData] = useState({
+    name: '',
+    email: '',
+    role: 'staff'
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setUserData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onAddUser(userData);
+    setOpen(false);
+    setUserData({ name: '', email: '', role: 'staff' });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="ml-auto gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 btn-hover-glow">
+          <UserPlus className="h-4 w-4" />
+          Add User
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Add New User</DialogTitle>
+          <DialogDescription>
+            Add a new user to your pharmacy system. They will receive an email invitation.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="name" className="text-right text-sm font-medium col-span-1">
+                Name
+              </label>
+              <Input
+                id="name"
+                name="name"
+                value={userData.name}
+                onChange={handleChange}
+                placeholder="Enter full name"
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="email" className="text-right text-sm font-medium col-span-1">
+                Email
+              </label>
+              <Input
+                id="email"
+                name="email"
+                value={userData.email}
+                onChange={handleChange}
+                placeholder="user@example.com"
+                type="email"
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="role" className="text-right text-sm font-medium col-span-1">
+                Role
+              </label>
+              <select
+                id="role"
+                name="role"
+                value={userData.role}
+                onChange={handleChange}
+                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="staff">Staff</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit" className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
+              Send Invitation
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 export default Users;

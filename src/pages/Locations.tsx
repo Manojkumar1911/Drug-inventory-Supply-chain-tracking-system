@@ -24,6 +24,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -44,9 +53,10 @@ import {
   ToggleLeft,
   Truck,
   ArrowLeftRight,
+  Map,
+  Activity
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import PageLoader from '@/components/ui/page-loader';
 
 interface Location {
   id: string;
@@ -60,6 +70,19 @@ interface Location {
   manager: string;
   staff_count: number;
   product_count: number;
+  type: 'warehouse' | 'retail' | 'distribution';
+  latitude?: number;
+  longitude?: number;
+}
+
+interface NewLocation {
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  phone: string;
+  manager: string;
   type: 'warehouse' | 'retail' | 'distribution';
 }
 
@@ -76,7 +99,9 @@ const mockLocations: Location[] = [
     manager: 'Dr. Sarah Johnson',
     staff_count: 12,
     product_count: 2358,
-    type: 'retail'
+    type: 'retail',
+    latitude: 37.78825,
+    longitude: -122.4324
   },
   {
     id: '2',
@@ -90,7 +115,9 @@ const mockLocations: Location[] = [
     manager: 'Dr. Michael Chen',
     staff_count: 8,
     product_count: 1947,
-    type: 'retail'
+    type: 'retail',
+    latitude: 37.7897,
+    longitude: -122.4000
   },
   {
     id: '3',
@@ -104,7 +131,9 @@ const mockLocations: Location[] = [
     manager: 'Robert Miller',
     staff_count: 18,
     product_count: 8795,
-    type: 'warehouse'
+    type: 'warehouse',
+    latitude: 37.7548,
+    longitude: -122.1921
   },
   {
     id: '4',
@@ -118,7 +147,9 @@ const mockLocations: Location[] = [
     manager: 'Jennifer Wilson',
     staff_count: 15,
     product_count: 6240,
-    type: 'distribution'
+    type: 'distribution',
+    latitude: 37.3387,
+    longitude: -121.8853
   },
   {
     id: '5',
@@ -132,7 +163,9 @@ const mockLocations: Location[] = [
     manager: 'David Thompson',
     staff_count: 0,
     product_count: 0,
-    type: 'retail'
+    type: 'retail',
+    latitude: 37.8716,
+    longitude: -122.2727
   }
 ];
 
@@ -140,6 +173,19 @@ const Locations: React.FC = () => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddLocation, setShowAddLocation] = useState(false);
+  const [showEditLocation, setShowEditLocation] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [newLocation, setNewLocation] = useState<NewLocation>({
+    name: '',
+    address: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    phone: '',
+    manager: '',
+    type: 'retail'
+  });
 
   // Load locations from Supabase or fallback to mock data
   useEffect(() => {
@@ -158,6 +204,7 @@ const Locations: React.FC = () => {
           // Map data from Supabase to our Location interface
           const mappedLocations = data.map((location: any) => ({
             ...location,
+            id: String(location.id),
             staff_count: location.staff_count || Math.floor(Math.random() * 20) + 2,
             product_count: location.product_count || Math.floor(Math.random() * 5000) + 500
           }));
@@ -223,6 +270,115 @@ const Locations: React.FC = () => {
     }
   };
 
+  const handleAddLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      // In a real app, this would add data to Supabase
+      const newLocationEntry: Location = {
+        id: `loc-${Date.now()}`,
+        ...newLocation,
+        is_active: true,
+        staff_count: 0,
+        product_count: 0
+      };
+      
+      setLocations([...locations, newLocationEntry]);
+      setShowAddLocation(false);
+      setNewLocation({
+        name: '',
+        address: '',
+        city: '',
+        state: '',
+        zip_code: '',
+        phone: '',
+        manager: '',
+        type: 'retail'
+      });
+      
+      toast.success('Location added successfully!');
+    } catch (error) {
+      console.error('Error adding location:', error);
+      toast.error('Failed to add location');
+    }
+  };
+
+  const handleEditLocation = (location: Location) => {
+    setSelectedLocation(location);
+    setShowEditLocation(true);
+  };
+
+  const handleUpdateLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLocation) return;
+    
+    try {
+      // In a real app, this would update data in Supabase
+      const updatedLocations = locations.map(location => 
+        location.id === selectedLocation.id ? selectedLocation : location
+      );
+      
+      setLocations(updatedLocations);
+      setShowEditLocation(false);
+      setSelectedLocation(null);
+      
+      toast.success('Location updated successfully!');
+    } catch (error) {
+      console.error('Error updating location:', error);
+      toast.error('Failed to update location');
+    }
+  };
+
+  const handleDeleteLocation = (locationId: string) => {
+    try {
+      // In a real app, this would delete data from Supabase
+      const updatedLocations = locations.filter(location => location.id !== locationId);
+      setLocations(updatedLocations);
+      
+      toast.error('Location deleted', {
+        description: 'The location has been removed from the system'
+      });
+    } catch (error) {
+      console.error('Error deleting location:', error);
+      toast.error('Failed to delete location');
+    }
+  };
+
+  const toggleLocationStatus = (locationId: string, currentStatus: boolean) => {
+    try {
+      // In a real app, this would update data in Supabase
+      const updatedLocations = locations.map(location => {
+        if (location.id === locationId) {
+          return { ...location, is_active: !currentStatus };
+        }
+        return location;
+      });
+      
+      setLocations(updatedLocations);
+      
+      toast.success(`Location ${currentStatus ? 'deactivated' : 'activated'}`);
+    } catch (error) {
+      console.error('Error toggling location status:', error);
+      toast.error('Failed to update location status');
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, isEdit = false) => {
+    const { name, value } = e.target;
+    
+    if (isEdit && selectedLocation) {
+      setSelectedLocation({
+        ...selectedLocation,
+        [name]: value
+      });
+    } else {
+      setNewLocation({
+        ...newLocation,
+        [name]: value
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -238,9 +394,11 @@ const Locations: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50 shadow-glow-blue/5 hover-lift">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Locations</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <Building2 className="h-4 w-4 text-blue-500" /> Total Locations
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{locations.length}</div>
@@ -250,9 +408,11 @@ const Locations: React.FC = () => {
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 border-emerald-200/50">
+        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 border-emerald-200/50 shadow-glow-green/5 hover-lift">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Retail Locations</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <MapPin className="h-4 w-4 text-emerald-500" /> Retail Locations
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -264,9 +424,11 @@ const Locations: React.FC = () => {
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200/50">
+        <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200/50 shadow-glow-yellow/5 hover-lift">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Products</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <PackageOpen className="h-4 w-4 text-amber-500" /> Products
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalProducts.toLocaleString()}</div>
@@ -276,9 +438,11 @@ const Locations: React.FC = () => {
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200/50">
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200/50 shadow-glow-purple/5 hover-lift">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Staff</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <Users className="h-4 w-4 text-purple-500" /> Staff
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalStaff}</div>
@@ -295,9 +459,9 @@ const Locations: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 bg-gradient-to-br from-card to-muted/50">
           <CardHeader className="pb-3">
-            <CardTitle>All Locations</CardTitle>
+            <CardTitle className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">All Locations</CardTitle>
             <CardDescription>
               Manage your pharmacy locations and inventory sites
             </CardDescription>
@@ -315,8 +479,8 @@ const Locations: React.FC = () => {
               </div>
               
               <Button
-                className="ml-auto gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
-                onClick={() => toast.success('Location added successfully!')}
+                className="ml-auto gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 btn-hover-glow"
+                onClick={() => setShowAddLocation(true)}
               >
                 <PlusCircle className="h-4 w-4" />
                 Add Location
@@ -326,7 +490,10 @@ const Locations: React.FC = () => {
           
           <CardContent>
             {isLoading ? (
-              <PageLoader message="Loading locations..." />
+              <div className="flex flex-col items-center justify-center p-8">
+                <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin mb-4"></div>
+                <p className="text-muted-foreground">Loading locations...</p>
+              </div>
             ) : filteredLocations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <Building2 className="h-12 w-12 text-muted-foreground/60 mb-3" />
@@ -391,8 +558,12 @@ const Locations: React.FC = () => {
                             <span>{location.product_count.toLocaleString()} products</span>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 h-1 rounded-full mt-1">
                               <div 
-                                className="bg-blue-500 h-1 rounded-full" 
-                                style={{ width: '75%' }} 
+                                className={`h-1 rounded-full ${
+                                  location.product_count > 5000 
+                                    ? "bg-gradient-to-r from-blue-500 to-purple-500" 
+                                    : "bg-gradient-to-r from-blue-400 to-blue-500"
+                                }`}
+                                style={{ width: `${Math.min(location.product_count / 100, 100)}%` }} 
                               />
                             </div>
                           </div>
@@ -400,23 +571,20 @@ const Locations: React.FC = () => {
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted/80">
                                 <MoreHorizontal className="h-4 w-4" />
                                 <span className="sr-only">Open menu</span>
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => toast.success('Location details opened')}>
-                                View details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => toast.success('Location edited successfully')}>
+                              <DropdownMenuItem onClick={() => handleEditLocation(location)}>
                                 <Pencil className="h-4 w-4 mr-2" />
                                 Edit location
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
-                                onClick={() => toast.success(`Location ${location.is_active ? 'deactivated' : 'activated'}`)}
+                                onClick={() => toggleLocationStatus(location.id, location.is_active)}
                               >
                                 {location.is_active ? (
                                   <>
@@ -437,7 +605,7 @@ const Locations: React.FC = () => {
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 className="text-red-600"
-                                onClick={() => toast.error('Location deleted')}
+                                onClick={() => handleDeleteLocation(location.id)}
                               >
                                 <Trash className="h-4 w-4 mr-2" />
                                 Delete location
@@ -454,15 +622,18 @@ const Locations: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-br from-gray-50 to-blue-50/30 dark:from-gray-900/50 dark:to-blue-900/20 hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle>Location Map</CardTitle>
+            <CardTitle className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+              <Map className="h-5 w-5 text-primary" />
+              Location Map
+            </CardTitle>
             <CardDescription>
               Geographic distribution of your locations
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="aspect-video bg-muted rounded-md flex items-center justify-center overflow-hidden">
+            <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 rounded-md flex items-center justify-center overflow-hidden shadow-inner border border-muted">
               <iframe 
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d25299.40305997207!2d-122.2663207237422!3d37.8708684183182!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x808579363a8549d3%3A0x94ea1595a675e993!2sBerkeley%2C%20CA%2C%20USA!5e0!3m2!1sen!2sin!4v1677788363571!5m2!1sen!2sin" 
                 width="100%" 
@@ -473,14 +644,270 @@ const Locations: React.FC = () => {
                 title="Location Map"
               />
             </div>
+            
+            <div className="mt-4">
+              <h4 className="font-medium text-sm mb-2">Location Statistics</h4>
+              <ul className="space-y-2 text-sm">
+                {['CA', 'NY', 'TX'].map((state) => (
+                  <li key={state} className="flex justify-between items-center">
+                    <span>{state}</span>
+                    <div className="flex-1 mx-4">
+                      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-2 bg-gradient-to-r ${
+                            state === 'CA' 
+                              ? 'from-blue-400 to-blue-600 w-3/4' 
+                              : state === 'NY'
+                                ? 'from-purple-400 to-purple-600 w-1/2'
+                                : 'from-green-400 to-green-600 w-1/4'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                    <span className="font-medium">
+                      {state === 'CA' ? '75%' : state === 'NY' ? '50%' : '25%'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button variant="outline" className="w-full">
+          <CardFooter className="flex justify-between border-t pt-4">
+            <Button variant="outline" className="flex-1">
+              <Map className="h-4 w-4 mr-2" />
               View Full Map
+            </Button>
+            <Button className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 ml-2">
+              <Activity className="h-4 w-4 mr-2" />
+              Activity Log
             </Button>
           </CardFooter>
         </Card>
       </motion.div>
+
+      {/* Add Location Dialog */}
+      <Dialog open={showAddLocation} onOpenChange={setShowAddLocation}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Location</DialogTitle>
+            <DialogDescription>
+              Add a new pharmacy location or warehouse to your inventory system.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddLocation}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="name" className="text-right text-sm font-medium">Name</label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={newLocation.name}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="address" className="text-right text-sm font-medium">Address</label>
+                <Input
+                  id="address"
+                  name="address"
+                  value={newLocation.address}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="city" className="text-right text-sm font-medium">City</label>
+                <Input
+                  id="city"
+                  name="city"
+                  value={newLocation.city}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="state" className="text-right text-sm font-medium">State</label>
+                <Input
+                  id="state"
+                  name="state"
+                  value={newLocation.state}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="zip_code" className="text-right text-sm font-medium">ZIP Code</label>
+                <Input
+                  id="zip_code"
+                  name="zip_code"
+                  value={newLocation.zip_code}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="phone" className="text-right text-sm font-medium">Phone</label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  value={newLocation.phone}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="manager" className="text-right text-sm font-medium">Manager</label>
+                <Input
+                  id="manager"
+                  name="manager"
+                  value={newLocation.manager}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="type" className="text-right text-sm font-medium">Type</label>
+                <select
+                  id="type"
+                  name="type"
+                  value={newLocation.type}
+                  onChange={handleInputChange}
+                  className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="retail">Retail Location</option>
+                  <option value="warehouse">Warehouse</option>
+                  <option value="distribution">Distribution Center</option>
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowAddLocation(false)}>Cancel</Button>
+              <Button type="submit" className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">Add Location</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Location Dialog */}
+      <Dialog open={showEditLocation} onOpenChange={setShowEditLocation}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Location</DialogTitle>
+            <DialogDescription>
+              Update location information in your inventory system.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedLocation && (
+            <form onSubmit={handleUpdateLocation}>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-name" className="text-right text-sm font-medium">Name</label>
+                  <Input
+                    id="edit-name"
+                    name="name"
+                    value={selectedLocation.name}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-address" className="text-right text-sm font-medium">Address</label>
+                  <Input
+                    id="edit-address"
+                    name="address"
+                    value={selectedLocation.address}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-city" className="text-right text-sm font-medium">City</label>
+                  <Input
+                    id="edit-city"
+                    name="city"
+                    value={selectedLocation.city}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-state" className="text-right text-sm font-medium">State</label>
+                  <Input
+                    id="edit-state"
+                    name="state"
+                    value={selectedLocation.state}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-zip_code" className="text-right text-sm font-medium">ZIP Code</label>
+                  <Input
+                    id="edit-zip_code"
+                    name="zip_code"
+                    value={selectedLocation.zip_code}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-phone" className="text-right text-sm font-medium">Phone</label>
+                  <Input
+                    id="edit-phone"
+                    name="phone"
+                    value={selectedLocation.phone}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-manager" className="text-right text-sm font-medium">Manager</label>
+                  <Input
+                    id="edit-manager"
+                    name="manager"
+                    value={selectedLocation.manager}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-type" className="text-right text-sm font-medium">Type</label>
+                  <select
+                    id="edit-type"
+                    name="type"
+                    value={selectedLocation.type}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="retail">Retail Location</option>
+                    <option value="warehouse">Warehouse</option>
+                    <option value="distribution">Distribution Center</option>
+                  </select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowEditLocation(false)}>Cancel</Button>
+                <Button type="submit" className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">Update Location</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

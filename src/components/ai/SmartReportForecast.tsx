@@ -78,9 +78,16 @@ const SmartReportForecast: React.FC = () => {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        setProducts(data);
-        // Select the first product by default
-        setSelectedProduct(data[0].id);
+        // Convert numeric ids to string to match ProductData interface
+        const formattedData: ProductData[] = data.map(item => ({
+          id: String(item.id),
+          name: item.name,
+          sku: item.sku
+        }));
+        
+        setProducts(formattedData);
+        // Select the first product by default, ensuring it's a string
+        setSelectedProduct(String(formattedData[0].id));
       } else {
         toast.warning("No products found in the database.");
         setIsLoading(false);
@@ -219,7 +226,8 @@ const SmartReportForecast: React.FC = () => {
         left: 'center',
         textStyle: {
           fontWeight: 'normal',
-          fontSize: 16
+          fontSize: 16,
+          color: '#8b5cf6'
         }
       },
       tooltip: {
@@ -267,11 +275,12 @@ const SmartReportForecast: React.FC = () => {
             return value.substring(5); // Show MM-DD format
           }
         },
-        markLine: {
-          symbol: ['none', 'none'],
-          label: { show: true, position: 'middle', formatter: 'Today' },
-          lineStyle: { color: '#333', type: 'dashed' },
-          data: [{ xAxis: forecastStartIndex }]
+        splitLine: {
+          show: true,
+          lineStyle: {
+            type: 'dashed',
+            color: '#ddd'
+          }
         }
       },
       yAxis: {
@@ -281,6 +290,11 @@ const SmartReportForecast: React.FC = () => {
         nameGap: 50,
         axisLabel: {
           formatter: '{value}'
+        },
+        splitLine: {
+          lineStyle: {
+            type: 'dashed'
+          }
         }
       },
       series: [
@@ -408,24 +422,24 @@ const SmartReportForecast: React.FC = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className="shadow-lg border-2 border-purple-200 dark:border-purple-900 bg-gradient-to-br from-background to-background/80">
+      <Card className="shadow-lg border-2 border-purple-200 dark:border-purple-900 bg-gradient-to-br from-purple-50/50 to-blue-50/50 dark:from-purple-950/30 dark:to-blue-950/30">
         <CardHeader className="space-y-1">
           <div className="flex flex-wrap justify-between gap-3 items-center">
             <CardTitle className="text-xl bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
               ARIMA Forecasting Model
             </CardTitle>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={handleRefresh}>
-                <RefreshCw className="h-4 w-4 mr-1" /> 
+              <Button size="sm" variant="outline" className="hover:bg-purple-100 dark:hover:bg-purple-900/50" onClick={handleRefresh}>
+                <RefreshCw className="h-4 w-4 mr-1 text-purple-500" /> 
                 Refresh
               </Button>
-              <Button size="sm" variant="outline" onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-1" /> 
+              <Button size="sm" variant="outline" className="hover:bg-blue-100 dark:hover:bg-blue-900/50" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-1 text-blue-500" /> 
                 Export
               </Button>
             </div>
           </div>
-          <CardDescription>
+          <CardDescription className="text-purple-700 dark:text-purple-300">
             Advanced time series forecasting based on ARIMA model
           </CardDescription>
         </CardHeader>
@@ -438,7 +452,7 @@ const SmartReportForecast: React.FC = () => {
                 onValueChange={setSelectedProduct}
                 disabled={isLoading || products.length === 0}
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-white/80 dark:bg-gray-900/80">
                   <SelectValue placeholder="Select a product" />
                 </SelectTrigger>
                 <SelectContent>
@@ -458,7 +472,7 @@ const SmartReportForecast: React.FC = () => {
                 onValueChange={setForecastPeriod}
                 disabled={isLoading}
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-white/80 dark:bg-gray-900/80">
                   <SelectValue placeholder="Select period" />
                 </SelectTrigger>
                 <SelectContent>
@@ -473,9 +487,13 @@ const SmartReportForecast: React.FC = () => {
             
             <div className="w-full md:w-1/3">
               <Tabs value={activeMetric} onValueChange={setActiveMetric} className="w-full">
-                <TabsList className="w-full">
-                  <TabsTrigger value="consumption" className="flex-1">Consumption</TabsTrigger>
-                  <TabsTrigger value="stock" className="flex-1">Stock Level</TabsTrigger>
+                <TabsList className="w-full bg-white/80 dark:bg-gray-900/80">
+                  <TabsTrigger value="consumption" className="flex-1 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-900 dark:data-[state=active]:bg-purple-900/50 dark:data-[state=active]:text-purple-100">
+                    Consumption
+                  </TabsTrigger>
+                  <TabsTrigger value="stock" className="flex-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900 dark:data-[state=active]:bg-blue-900/50 dark:data-[state=active]:text-blue-100">
+                    Stock Level
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -483,7 +501,7 @@ const SmartReportForecast: React.FC = () => {
           
           <div className="h-[400px] w-full relative">
             {isLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center flex-col gap-2 bg-background/50">
+              <div className="absolute inset-0 flex items-center justify-center flex-col gap-2 bg-background/50 backdrop-blur-sm">
                 <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                 <p className="text-sm text-muted-foreground">Generating ARIMA forecast...</p>
               </div>
