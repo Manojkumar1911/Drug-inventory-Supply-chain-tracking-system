@@ -62,11 +62,32 @@ interface Supplier {
   email: string;
   phone_number: string;
   address: string;
-  website: string;
-  category: string;
+  website?: string; // Optional
+  category?: string; // Optional
   is_active: boolean;
   products_count: number;
   created_at: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  country: string;
+}
+
+// Interface for the database schema
+interface SupplierDB {
+  id: number;
+  name: string;
+  contact_person: string;
+  email: string;
+  phone_number: string;
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  country: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 const Suppliers: React.FC = () => {
@@ -82,6 +103,10 @@ const Suppliers: React.FC = () => {
     email: "",
     phone_number: "",
     address: "",
+    city: "",
+    state: "",
+    zip_code: "",
+    country: "USA",
     website: "",
     category: "General"
   });
@@ -127,10 +152,14 @@ const Suppliers: React.FC = () => {
         email: supplier.email || '',
         phone_number: supplier.phone_number || '',
         address: supplier.address || '',
+        city: supplier.city || '',
+        state: supplier.state || '',
+        zip_code: supplier.zip_code || '',
+        country: supplier.country || 'USA',
         website: supplier.website || '',
         category: supplier.category || 'General',
         is_active: supplier.is_active,
-        products_count: supplier.products?.length > 0 ? parseInt(supplier.products[0].count) : 0,
+        products_count: supplier.products?.length > 0 ? parseInt(String(supplier.products[0].count)) : 0,
         created_at: supplier.created_at
       })) as Supplier[];
       
@@ -147,7 +176,7 @@ const Suppliers: React.FC = () => {
     supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     supplier.contact_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     supplier.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    supplier.category.toLowerCase().includes(searchQuery.toLowerCase())
+    (supplier.category && supplier.category.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,7 +193,7 @@ const Suppliers: React.FC = () => {
       const { error } = await supabase
         .from('suppliers')
         .delete()
-        .eq('id', id);
+        .eq('id', parseInt(id));
       
       if (error) throw error;
       
@@ -181,7 +210,7 @@ const Suppliers: React.FC = () => {
       const { error } = await supabase
         .from('suppliers')
         .update({ is_active: !currentStatus })
-        .eq('id', id);
+        .eq('id', parseInt(id));
       
       if (error) throw error;
       
@@ -198,16 +227,20 @@ const Suppliers: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('suppliers')
-        .insert([{
+        .insert({
           name: newSupplier.name,
           contact_person: newSupplier.contact_name,
           email: newSupplier.email,
           phone_number: newSupplier.phone_number,
           address: newSupplier.address,
+          city: newSupplier.city,
+          state: newSupplier.state,
+          zip_code: newSupplier.zip_code,
+          country: newSupplier.country,
           website: newSupplier.website,
           category: newSupplier.category,
           is_active: true
-        }])
+        })
         .select();
       
       if (error) throw error;
@@ -220,6 +253,10 @@ const Suppliers: React.FC = () => {
         email: "",
         phone_number: "",
         address: "",
+        city: "",
+        state: "",
+        zip_code: "",
+        country: "USA",
         website: "",
         category: "General"
       });
@@ -243,10 +280,14 @@ const Suppliers: React.FC = () => {
           email: currentSupplier.email,
           phone_number: currentSupplier.phone_number,
           address: currentSupplier.address,
+          city: currentSupplier.city,
+          state: currentSupplier.state,
+          zip_code: currentSupplier.zip_code,
+          country: currentSupplier.country,
           website: currentSupplier.website,
           category: currentSupplier.category
         })
-        .eq('id', currentSupplier.id);
+        .eq('id', parseInt(currentSupplier.id));
       
       if (error) throw error;
       
@@ -278,11 +319,11 @@ const Suppliers: React.FC = () => {
   // Function to render the badge with proper styling based on active status
   const renderStatusBadge = (isActive: boolean) => {
     return isActive ? (
-      <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300">
+      <Badge variant="secondary" className="bg-gradient-to-r from-green-400 to-emerald-500 text-white dark:from-green-600 dark:to-emerald-700">
         Active
       </Badge>
     ) : (
-      <Badge variant="secondary" className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300">
+      <Badge variant="secondary" className="bg-gradient-to-r from-gray-400 to-slate-500 dark:from-gray-700 dark:to-slate-800">
         Inactive
       </Badge>
     );
@@ -348,7 +389,7 @@ const Suppliers: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {new Set(suppliers.map(s => s.category)).size}
+                {new Set(suppliers.map(s => s.category).filter(Boolean)).size}
               </div>
             </CardContent>
           </Card>
@@ -471,9 +512,13 @@ const Suppliers: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-800">
-                          {supplier.category || "General"}
-                        </Badge>
+                        {supplier.category ? (
+                          <Badge variant="outline" className="bg-gradient-to-r from-purple-200/50 to-purple-300/50 text-purple-800 border-purple-200 dark:bg-gradient-to-r dark:from-purple-900/30 dark:to-purple-800/30 dark:text-purple-200 dark:border-purple-800">
+                            {supplier.category}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">General</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-center">
                         {supplier.products_count}
@@ -590,6 +635,39 @@ const Suppliers: React.FC = () => {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="city" className="text-right text-sm font-medium">City</label>
+                <Input
+                  id="city"
+                  name="city"
+                  value={newSupplier.city}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="state" className="text-right text-sm font-medium">State</label>
+                <Input
+                  id="state"
+                  name="state"
+                  value={newSupplier.state}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="zip_code" className="text-right text-sm font-medium">Zip Code</label>
+                <Input
+                  id="zip_code"
+                  name="zip_code"
+                  value={newSupplier.zip_code}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
                 <label htmlFor="website" className="text-right text-sm font-medium">Website</label>
                 <Input
                   id="website"
@@ -690,11 +768,44 @@ const Suppliers: React.FC = () => {
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-city" className="text-right text-sm font-medium">City</label>
+                  <Input
+                    id="edit-city"
+                    name="city"
+                    value={currentSupplier.city}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-state" className="text-right text-sm font-medium">State</label>
+                  <Input
+                    id="edit-state"
+                    name="state"
+                    value={currentSupplier.state}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="edit-zip_code" className="text-right text-sm font-medium">Zip Code</label>
+                  <Input
+                    id="edit-zip_code"
+                    name="zip_code"
+                    value={currentSupplier.zip_code}
+                    onChange={(e) => handleInputChange(e, true)}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
                   <label htmlFor="edit-website" className="text-right text-sm font-medium">Website</label>
                   <Input
                     id="edit-website"
                     name="website"
-                    value={currentSupplier.website}
+                    value={currentSupplier.website || ''}
                     onChange={(e) => handleInputChange(e, true)}
                     className="col-span-3"
                   />
@@ -704,7 +815,7 @@ const Suppliers: React.FC = () => {
                   <select
                     id="edit-category"
                     name="category"
-                    value={currentSupplier.category}
+                    value={currentSupplier.category || 'General'}
                     onChange={(e) => handleInputChange(e, true)}
                     className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >

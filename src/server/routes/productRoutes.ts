@@ -13,7 +13,7 @@ export const initProductRoutes = (pool: Pool) => {
 };
 
 // Define routes properly
-router.get('/products', async (_req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     // Implementation for getting products
     // const products = await productModel.find();
@@ -23,7 +23,7 @@ router.get('/products', async (_req: Request, res: Response) => {
   }
 });
 
-router.post('/products', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     // Implementation for creating a product
     // const product = await productModel.create(req.body);
@@ -33,7 +33,7 @@ router.post('/products', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/products/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
     // Implementation for updating a product
     // const product = await productModel.update(req.params.id, req.body);
@@ -43,7 +43,7 @@ router.put('/products/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/products/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
     // Implementation for deleting a product
     // await productModel.delete(req.params.id);
@@ -53,7 +53,7 @@ router.delete('/products/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/products/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
     // Implementation for getting a single product
     // const product = await productModel.findById(req.params.id);

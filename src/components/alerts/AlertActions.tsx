@@ -31,14 +31,47 @@ const AlertActions: React.FC<AlertActionsProps> = ({ className }) => {
         toast.error("You need to be logged in to perform this action");
         return;
       }
+
+      // Gather alert data based on the check type
+      let alertsData;
       
-      const response = await fetch("https://labzxhoshhzfixlzccrw.supabase.co/functions/v1/send-alert-notifications", {
+      if (checkType === 'all') {
+        // Prepare data for combined alerts in a single email
+        const expiryProducts = await fetchExpiryAlerts();
+        const stockProducts = await fetchLowStockProducts();
+        const transferRecommendations = await fetchTransferRecommendations();
+        
+        alertsData = {
+          allAlerts: [
+            ...expiryProducts.map(product => ({ type: 'expiry', product })),
+            ...stockProducts.map(product => ({ type: 'stock', product })),
+            ...transferRecommendations.map(rec => ({ 
+              type: 'transfer', 
+              product: rec.product,
+              from_location: rec.from_location,
+              to_location: rec.to_location,
+              from_quantity: rec.from_quantity,
+              to_quantity: rec.to_quantity,
+              recommended_quantity: rec.recommended_quantity
+            }))
+          ],
+          emailRecipient: "manojinsta19@gmail.com"
+        };
+      } else {
+        // Prepare data for single type of alert
+        alertsData = { 
+          checkType, 
+          emailRecipient: "manojinsta19@gmail.com" 
+        };
+      }
+      
+      const response = await fetch("https://labzxhoshhzfixlzccrw.supabase.co/functions/v1/send-email-alert", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session?.access_token || ""}`
         },
-        body: JSON.stringify({ checkType, emailRecipient: "manojinsta19@gmail.com" })
+        body: JSON.stringify(alertsData)
       });
       
       const result = await response.json();
@@ -47,44 +80,28 @@ const AlertActions: React.FC<AlertActionsProps> = ({ className }) => {
       if (result.success) {
         switch (checkType) {
           case "expiry":
-            toast.success(`Expiry alerts processed: Found ${result.results?.length || 0} products expiring soon.`, {
-              description: `Notifications sent to manojinsta19@gmail.com`
+            toast.success(`Expiry alerts processed successfully`, {
+              description: `Email sent to manojinsta19@gmail.com`
             });
             break;
           case "stock":
-            toast.success(`Low stock alerts processed: ${result.message}`, {
-              description: `Notifications sent to manojinsta19@gmail.com`
+            toast.success(`Low stock alerts processed successfully`, {
+              description: `Email sent to manojinsta19@gmail.com`
             });
             break;
           case "transfers":
-            toast.success(`Transfer recommendations processed: ${result.message}`, {
-              description: result.recommendationsCount > 0 ? 
-                `Created ${result.recommendationsCount} transfer recommendations` : 
-                `No transfer recommendations needed at this time`
+            toast.success(`Transfer recommendations processed successfully`, {
+              description: `Email sent to manojinsta19@gmail.com`
             });
             break;
           case "all":
-            toast.success("All alerts and recommendations processed", {
-              description: "Check logs for details"
+            toast.success(`All alerts processed successfully`, {
+              description: `Email containing ${alertsData.allAlerts.length} alerts sent to manojinsta19@gmail.com`
             });
             break;
         }
       } else {
-        // More detailed error handling
-        let errorMessage = "Unknown error";
-        if (result.error) {
-          errorMessage = result.error;
-        } else if (checkType === "all") {
-          if (!result.stockChecks?.success) {
-            errorMessage = `Stock alerts failed: ${result.stockChecks?.error || 'Unknown error'}`;
-          } else if (!result.expiryChecks?.success) {
-            errorMessage = `Expiry alerts failed: ${result.expiryChecks?.error || 'Unknown error'}`;
-          } else if (!result.transferRecommendations?.success) {
-            errorMessage = `Transfer recommendations failed: ${result.transferRecommendations?.error || 'Unknown error'}`;
-          }
-        }
-        
-        toast.error(`Failed to process ${checkType} alerts: ${errorMessage}`, {
+        toast.error(`Failed to process ${checkType} alerts: ${result.message || 'Unknown error'}`, {
           duration: 5000
         });
         
@@ -92,9 +109,115 @@ const AlertActions: React.FC<AlertActionsProps> = ({ className }) => {
       }
     } catch (error) {
       console.error(`Error checking ${checkType} alerts:`, error);
-      toast.error(`Failed to process ${checkType} alerts: Network error`);
+      toast.error(`Failed to process ${checkType} alerts: ${error.message || 'Network error'}`);
     } finally {
       setIsLoading(null);
+    }
+  };
+
+  // Function to fetch products expiring soon
+  const fetchExpiryAlerts = async () => {
+    try {
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .lt('expiry_date', thirtyDaysFromNow.toISOString())
+        .gt('expiry_date', new Date().toISOString())
+        .order('expiry_date', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching expiry alerts:", error);
+      return [];
+    }
+  };
+
+  // Function to fetch low stock products
+  const fetchLowStockProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .lt('quantity', supabase.raw('reorder_level'))
+        .order('quantity', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching low stock products:", error);
+      return [];
+    }
+  };
+
+  // Function to fetch transfer recommendations
+  const fetchTransferRecommendations = async () => {
+    try {
+      // Get all product locations with quantities
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('id, name, sku, unit, quantity, location, reorder_level');
+      
+      if (productsError) throw productsError;
+      
+      // Group products by SKU to identify same product in different locations
+      const productsBySku: Record<string, any[]> = {};
+      products?.forEach(product => {
+        if (!productsBySku[product.sku]) {
+          productsBySku[product.sku] = [];
+        }
+        productsBySku[product.sku].push(product);
+      });
+      
+      // Find transfer opportunities (locations with excess vs. locations with low stock)
+      const recommendations = [];
+      
+      Object.values(productsBySku).forEach(productsWithSameSku => {
+        if (productsWithSameSku.length < 2) return; // Need at least 2 locations to transfer
+        
+        // Find low stock locations
+        const lowStockLocations = productsWithSameSku.filter(
+          p => p.quantity < p.reorder_level
+        );
+        
+        // Find excess stock locations (has more than reorder level + buffer)
+        const excessStockLocations = productsWithSameSku.filter(
+          p => p.quantity > (p.reorder_level * 1.5) // 50% buffer
+        );
+        
+        // Create recommendations for each low stock location
+        lowStockLocations.forEach(lowStockProduct => {
+          // Sort excess locations by quantity descending
+          const sortedExcessLocations = [...excessStockLocations]
+            .sort((a, b) => b.quantity - a.quantity);
+          
+          if (sortedExcessLocations.length > 0) {
+            const excessLocation = sortedExcessLocations[0];
+            const deficit = lowStockProduct.reorder_level - lowStockProduct.quantity;
+            const excess = excessLocation.quantity - excessLocation.reorder_level;
+            const transferAmount = Math.min(deficit, excess);
+            
+            if (transferAmount > 0) {
+              recommendations.push({
+                product: lowStockProduct,
+                from_location: excessLocation.location,
+                to_location: lowStockProduct.location,
+                from_quantity: excessLocation.quantity,
+                to_quantity: lowStockProduct.quantity,
+                recommended_quantity: transferAmount
+              });
+            }
+          }
+        });
+      });
+      
+      return recommendations;
+    } catch (error) {
+      console.error("Error generating transfer recommendations:", error);
+      return [];
     }
   };
 
