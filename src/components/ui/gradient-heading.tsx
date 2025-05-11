@@ -15,6 +15,7 @@ type GradientVariant =
 
 type HeadingLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 
+// Enhanced gradient colors for more vibrant text
 const gradientClasses: Record<GradientVariant, string> = {
   primary: "bg-gradient-to-r from-primary to-purple-600",
   purple: "bg-gradient-to-r from-purple-500 to-violet-600",
@@ -27,13 +28,14 @@ const gradientClasses: Record<GradientVariant, string> = {
   multi: "bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500",
 };
 
+// Enhanced font sizes for better typography
 const fontSizeClasses: Record<HeadingLevel, string> = {
-  h1: "text-3xl sm:text-4xl font-bold",
-  h2: "text-2xl sm:text-3xl font-bold",
-  h3: "text-xl sm:text-2xl font-bold",
-  h4: "text-lg sm:text-xl font-semibold",
-  h5: "text-base sm:text-lg font-semibold",
-  h6: "text-sm sm:text-base font-medium",
+  h1: "text-3xl sm:text-4xl md:text-5xl font-bold",
+  h2: "text-2xl sm:text-3xl md:text-4xl font-bold",
+  h3: "text-xl sm:text-2xl md:text-3xl font-bold",
+  h4: "text-lg sm:text-xl md:text-2xl font-semibold",
+  h5: "text-base sm:text-lg md:text-xl font-semibold",
+  h6: "text-sm sm:text-base md:text-lg font-medium",
 };
 
 interface GradientHeadingProps extends React.HTMLAttributes<HTMLHeadingElement> {

@@ -19,18 +19,20 @@ interface GradientButtonProps extends ButtonProps {
   glowEffect?: boolean;
 }
 
+// Enhanced gradient classes for more vibrant colors
 const gradientClasses: Record<GradientVariant, string> = {
   primary: "bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-primary-foreground",
-  purple: "bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-500/90 hover:to-violet-500/90 text-white",
-  blue: "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-500/90 hover:to-indigo-500/90 text-white",
-  green: "bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-500/90 hover:to-green-500/90 text-white",
-  amber: "bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-500/90 hover:to-yellow-500/90 text-white",
-  red: "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-500/90 hover:to-pink-500/90 text-white",
-  destructive: "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-600/90 hover:to-rose-600/90 text-white",
-  indigo: "bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-500/90 hover:to-blue-600/90 text-white",
-  pink: "bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-500/90 hover:to-rose-500/90 text-white",
+  purple: "bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white",
+  blue: "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white",
+  green: "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white",
+  amber: "bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white",
+  red: "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white",
+  destructive: "bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white",
+  indigo: "bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white",
+  pink: "bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white",
 };
 
+// Enhanced glow effects
 const glowClasses: Record<GradientVariant, string> = {
   primary: "hover:shadow-[0_0_15px_rgba(124,58,237,0.5)]",
   purple: "hover:shadow-[0_0_15px_rgba(168,85,247,0.5)]",
@@ -50,7 +52,7 @@ const GradientButton = React.forwardRef<HTMLButtonElement, GradientButtonProps>(
         className={cn(
           variant === "default" && gradientClasses[gradientVariant],
           glowEffect && variant === "default" && glowClasses[gradientVariant],
-          "transition-all duration-300",
+          "transition-all duration-300 relative after:content-[''] after:absolute after:inset-0 after:z-[-1] after:opacity-0 after:transition-all after:duration-300 hover:after:opacity-30 after:bg-white/20 after:blur-xl",
           className
         )}
         variant={variant}

@@ -121,12 +121,13 @@ const AlertActions: React.FC<AlertActionsProps> = ({ className }) => {
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
       
+      // Fix the query to not use raw
       const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .lt('expiry_date', thirtyDaysFromNow.toISOString())
-        .gt('expiry_date', new Date().toISOString())
-        .order('expiry_date', { ascending: true });
+        .from("products")
+        .select("*")
+        .lt("expiry_date", thirtyDaysFromNow.toISOString())
+        .gt("expiry_date", new Date().toISOString())
+        .order("expiry_date", { ascending: true });
       
       if (error) throw error;
       return data || [];
@@ -139,11 +140,12 @@ const AlertActions: React.FC<AlertActionsProps> = ({ className }) => {
   // Function to fetch low stock products
   const fetchLowStockProducts = async () => {
     try {
+      // Query products where quantity is less than reorder_level
       const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .lt('quantity', supabase.raw('reorder_level'))
-        .order('quantity', { ascending: true });
+        .from("products")
+        .select("*")
+        .lt("quantity", "reorder_level")
+        .order("quantity", { ascending: true });
       
       if (error) throw error;
       return data || [];

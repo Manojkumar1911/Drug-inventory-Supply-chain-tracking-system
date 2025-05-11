@@ -1,99 +1,67 @@
 
-import mongoose from 'mongoose';
-import Product from '../models/Product';
-import Location from '../models/Location';
-import Transfer from '../models/Transfer';
-import Alert from '../models/Alert';
+import { Collection, Db, MongoClient, ObjectId } from 'mongodb';
 
-export const initMonitoring = () => {
-  console.log('Initializing system monitoring...');
-  
-  // Schedule monitoring tasks
-  setInterval(checkLowStockLevels, 24 * 60 * 60 * 1000); // Once a day
-  setInterval(checkExpiringProducts, 24 * 60 * 60 * 1000); // Once a day
+interface SystemLog {
+  type: 'error' | 'warning' | 'info';
+  message: string;
+  timestamp: Date;
+  module?: string;
+  details?: any;
+}
 
-  // Run initial checks
-  checkLowStockLevels();
-  checkExpiringProducts();
-};
+export class SystemMonitor {
+  private db: Db | null = null;
+  private logsCollection: Collection<SystemLog> | null = null;
 
-const checkLowStockLevels = async () => {
-  try {
-    console.log('Checking for low stock levels...');
-    
-    const lowStockProducts = await Product.find({ 
-      quantity: { $lt: mongoose.Types.ObjectId('$reorderLevel') } 
-    });
-    
-    for (const product of lowStockProducts) {
-      // Check if an alert already exists
-      const existingAlert = await Alert.findOne({
-        product_id: product._id,
-        type: 'low_stock',
-        status: 'active'
-      });
-      
-      if (!existingAlert) {
-        // Create new alert
-        const alert = new Alert({
-          type: 'low_stock',
-          severity: 'high',
-          message: `Low stock alert for ${product.name}. Current quantity: ${product.quantity}, Reorder level: ${product.reorderLevel}`,
-          product_id: product._id,
-          status: 'active',
-          created_at: new Date()
-        });
-        
-        await alert.save();
-        console.log(`Created low stock alert for ${product.name}`);
-      }
+  constructor(private mongoUrl: string) {}
+
+  async connect() {
+    try {
+      const client = new MongoClient(this.mongoUrl);
+      await client.connect();
+      this.db = client.db('systemMonitoring');
+      this.logsCollection = this.db.collection<SystemLog>('logs');
+      console.log('Connected to MongoDB for system monitoring');
+      return true;
+    } catch (error) {
+      console.error('Failed to connect to MongoDB for monitoring:', error);
+      return false;
     }
-    
-  } catch (error) {
-    console.error('Error checking low stock levels:', error);
   }
-};
 
-const checkExpiringProducts = async () => {
-  try {
-    console.log('Checking for expiring products...');
-    
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-    
-    const expiringProducts = await Product.find({
-      expiration_date: { 
-        $exists: true, 
-        $ne: null,
-        $lte: thirtyDaysFromNow 
+  async logEvent(event: Omit<SystemLog, 'timestamp'>) {
+    try {
+      if (!this.logsCollection) {
+        throw new Error('Database not connected');
       }
-    });
-    
-    for (const product of expiringProducts) {
-      // Check if an alert already exists
-      const existingAlert = await Alert.findOne({
-        product_id: product._id,
-        type: 'expiring_soon',
-        status: 'active'
-      });
       
-      if (!existingAlert) {
-        // Create new alert
-        const alert = new Alert({
-          type: 'expiring_soon',
-          severity: 'medium',
-          message: `Product ${product.name} will expire on ${product.expiration_date.toLocaleDateString()}`,
-          product_id: product._id,
-          status: 'active',
-          created_at: new Date()
-        });
-        
-        await alert.save();
-        console.log(`Created expiration alert for ${product.name}`);
-      }
+      const logEntry: SystemLog = {
+        ...event,
+        timestamp: new Date()
+      };
+      
+      await this.logsCollection.insertOne(logEntry);
+      return true;
+    } catch (error) {
+      console.error('Failed to log event:', error);
+      return false;
     }
-    
-  } catch (error) {
-    console.error('Error checking expiring products:', error);
   }
-};
+
+  async getRecentLogs(limit: number = 100) {
+    try {
+      if (!this.logsCollection) {
+        throw new Error('Database not connected');
+      }
+      
+      return await this.logsCollection
+        .find({})
+        .sort({ timestamp: -1 })
+        .limit(limit)
+        .toArray();
+    } catch (error) {
+      console.error('Failed to retrieve logs:', error);
+      return [];
+    }
+  }
+}

@@ -1,9 +1,10 @@
 
 import express, { Request, Response } from 'express';
+import { Pool } from 'pg';
 
 const router = express.Router();
 
-// Define settings routes properly
+// Define routes properly - fixing the TS2769 errors
 router.get('/', async (_req: Request, res: Response) => {
   try {
     // Implementation for getting settings
@@ -39,5 +40,10 @@ router.delete('/:id', async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Failed to delete settings" });
   }
 });
+
+// Initialize model with pool
+export const initSettingsRoutes = (pool: Pool) => {
+  return router;
+};
 
 export default router;

@@ -12,7 +12,7 @@ export const initProductRoutes = (pool: Pool) => {
   return router;
 };
 
-// Define routes properly
+// Define routes properly - fixing the TS2769 errors
 router.get('/', async (_req: Request, res: Response) => {
   try {
     // Implementation for getting products

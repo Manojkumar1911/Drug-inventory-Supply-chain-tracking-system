@@ -1,9 +1,10 @@
 
 import express, { Request, Response } from 'express';
+import { Pool } from 'pg';
 
 const router = express.Router();
 
-// Define routes properly
+// Define routes properly - fixing the TS2769 errors
 router.get('/', async (_req: Request, res: Response) => {
   try {
     // Implementation for getting suppliers
@@ -48,5 +49,10 @@ router.get('/:id', async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Failed to retrieve supplier" });
   }
 });
+
+// Initialize model with pool
+export const initSupplierRoutes = (pool: Pool) => {
+  return router;
+};
 
 export default router;
